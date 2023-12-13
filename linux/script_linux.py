@@ -147,9 +147,6 @@ if __name__ == "__main__":
     print(f"Changing working directory to the downloaded {REPOSITORY_NAME} repository...")
     os.chdir(os.getcwd() + "/yolo-utils-main/")
 
-    print("Installing required packages from requirements.txt...")
-    os.system("pip3 install -r requirements.txt") # install requirements needed to run this script
-
     print("Current working directory:", os.getcwd())
 
     run_tests() # run metrics pytests

@@ -5,10 +5,10 @@ modules=(
     "requests==2.28.0"
     "tqdm==4.64.0"
     "pytest==7.1.1"
-    "torch==1.12.0"
-    "matplotlib==3.4.2"
-    "pyyaml==5.4.1"
-    "opencv-python==4.5.2.52"
+    "torch>=1.8.0"
+    "matplotlib==3.8.2"
+    "pyyaml==5.3.1"
+    "opencv-python>=4.1.1"
 )
 
 install_module() {
