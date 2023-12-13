@@ -135,9 +135,9 @@ def run_tests(): # execute test for metrics extraction functions
 if __name__ == "__main__":
     DATA_YAML = "dataset.yaml" # define yaml file path
     PRETRAINED_WEIGHTS = "yolov5s-model.pt" # define pre trained weights file path
-    BATCH_SIZES = [6, 12] # batch sizes to test
-    EPOCHS = [18] # epochs to test
-    IMG_SIZES = [256, 640, 1280]
+    BATCH_SIZES = [16, 32, 64] # batch sizes to test
+    EPOCHS = [50, 80, 100, 120, 150] # epochs to test
+    IMG_SIZES = [256, 640]
     DETECT_FOLDER = "yolov5/runs/detect" # folder with images to detect
     VALID_FOLDER = "dataset/valid/labels" # folder with real labels
 
