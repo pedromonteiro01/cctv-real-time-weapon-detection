@@ -159,7 +159,7 @@ if __name__ == "__main__":
                     DATA_YAML,  # path to data.yaml file
                     trained_weights,  # weights from the trained model
                     batch_size,  # batch size used for training
-                    640,  # image size used for training (e.g., 640)
+                    img_size,  # image size used for training (e.g., 640)
                     0.5,  # confidence threshold for predictions
                     0.45,  # IoU threshold for predictions
                     task='val'  # task could be 'val', 'test', etc.
