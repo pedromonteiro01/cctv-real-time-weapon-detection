@@ -1,0 +1,71 @@
+.navbar-wrapper {
+    width: 9rem;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.75);
+}
+
+.navbar-items {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 2rem;
+    list-style: none;
+}
+
+.navbar-items li {
+    width: 100%;
+}
+
+.navbar-logo {
+    display: flex;
+    width: 100%;
+    height: 3rem;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem 0 4rem 0;
+}
+
+.navbar-logo img {
+    width: 70%;
+}
+
+.navbar-item {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    color: #888;
+    padding: 0 4px;
+    border-left: 4px solid transparent; 
+    box-sizing: border-box; 
+    transition: border-color 0.3s ease-in-out;
+    transition: color 0.3s ease-in-out;
+    text-decoration: none; 
+}
+
+.navbar-item img {
+    width: 40%;
+    height: 40%;
+}
+
+.navbar-item:hover {
+    cursor: pointer;
+    color: #fff;
+}
+
+.navbar-item.selected, .navbar-item:hover {
+    border-left: 4px solid rgb(103, 103, 250); 
+}
+
+.navbar-item a, .navbar-item a:visited {
+    color: inherit;
+    text-decoration: none; 
+    display: block; 
+    padding: 0; 
+    margin: 0;
+}

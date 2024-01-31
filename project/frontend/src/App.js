@@ -1,13 +1,17 @@
-import './App.css';
-import Video from './views/Video/Video';
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import Navbar from './components/Navbar/Navbar';
+import Dashboard from './views/Dashboard/Dashboard';
 
-function App() {
+const App = () => {
   return (
-    <div className="App">
-      <p>CCTV</p>
-      <Video />
-    </div>
+    <Router>
+      <Navbar />
+      <Routes>
+        <Route path="/dashboard" component={Dashboard} />
+      </Routes>
+    </Router>
   );
-}
+};
 
 export default App;
