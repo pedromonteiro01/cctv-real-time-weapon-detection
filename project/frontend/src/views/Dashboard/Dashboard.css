@@ -1,0 +1,77 @@
+.dashboard-wrapper {
+    width: 100%;
+    padding: 2rem 1.5rem;
+    height: 100vh;
+    background-color: #1E1E1E;
+}
+
+.app-wrapper {
+    display: flex;
+}
+
+.dashboard-video-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    height: 52%;
+}
+
+.recorded-warning-wrapper {
+    padding-top: 1%;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    gap: 2rem;
+    height: 47%;
+}
+
+.recorded-warning-wrapper .recorded-data {
+    width: 70%;
+    color: #fff;
+}
+
+.recorded-warning-wrapper .unsolved-issue {
+    width: 30%;
+    color: #fff;
+}
+
+.dashboard-video-wrapper .dashboard-items {
+    width: 40%;
+}
+
+.dashboard-video-wrapper .dashboard-items p {
+    color: #fff;
+    font-size: 1.4rem;
+}
+
+.unsolved-issue-content {
+    background-color: #2F2F2F;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.unsolved-issue-content h3 {
+    margin-top: 1rem;
+    color: #F84242;
+}
+
+.unsolved-issue-content-weapon {
+    text-align: center;
+    margin: 0.2rem 0;
+}
+
+.warning-img-wrapper {
+    text-align: center;
+    width: 30%;
+    height: 30%;
+    margin-bottom: 1rem;
+}
+
+.warning-img-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+

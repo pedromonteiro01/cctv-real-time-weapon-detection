@@ -16,7 +16,7 @@ const Navbar = () => {
     };
 
     const navbarItems = [
-        { name: 'dashboard', path: '/dashboard' },
+        { name: 'dashboard', path: '/' },
         { name: 'database', path: '/database' },
         { name: 'personal', path: '/personal' },
         { name: 'settings', path: '/settings' },

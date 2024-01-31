@@ -1,0 +1,20 @@
+.dashboard-items-selectors ul {
+    width: 60%;
+    list-style: none;
+    color: #fff;
+    font-size: 1.07rem;
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem 0;
+}
+
+.dashboard-items-selectors-items {
+    width: 100%;
+}
+
+.accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7;
+    background-color: #2F2F2F;
+}

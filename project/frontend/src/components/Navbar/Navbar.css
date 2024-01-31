@@ -1,7 +1,7 @@
 .navbar-wrapper {
-    width: 9rem;
+    width: 10%;
     height: 100vh;
-    background-color: rgba(0, 0, 0, 0.75);
+    background-color: #1A1A1A;
 }
 
 .navbar-items {
@@ -26,11 +26,11 @@
     height: 3rem;
     justify-content: center;
     align-items: center;
-    padding: 2rem 0 4rem 0;
+    padding: 3rem 0 4rem 0;
 }
 
 .navbar-logo img {
-    width: 70%;
+    width: 55%;
 }
 
 .navbar-item {
@@ -49,17 +49,17 @@
 }
 
 .navbar-item img {
-    width: 40%;
-    height: 40%;
+    width: 30%;
+    height: 30%;
 }
 
 .navbar-item:hover {
     cursor: pointer;
-    color: #fff;
 }
 
 .navbar-item.selected, .navbar-item:hover {
     border-left: 4px solid rgb(103, 103, 250); 
+    color: #fff;
 }
 
 .navbar-item a, .navbar-item a:visited {
