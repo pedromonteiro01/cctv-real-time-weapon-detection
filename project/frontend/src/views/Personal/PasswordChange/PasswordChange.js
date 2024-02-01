@@ -5,8 +5,8 @@ const PasswordChange = () => {
         <div className='password-change-wrapper'>
             <p className='password-change-header'>Change Password</p>
             <div className='password-change-items'>
-                <input type='text' placeholder='Enter Password'></input>
-                <input type='text' placeholder='New Password'></input>
+                <input type='password' placeholder='Enter Password'></input>
+                <input type='password' placeholder='New Password'></input>
             </div>
         </div>
     )

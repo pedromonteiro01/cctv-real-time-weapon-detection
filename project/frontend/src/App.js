@@ -4,6 +4,7 @@ import Navbar from './components/Navbar/Navbar';
 import Dashboard from './views/Dashboard/Dashboard';
 import './App.css';
 import Personal from './views/Personal/Personal';
+import Database from './views/Database/Database';
 
 const App = () => {
   return (
@@ -14,6 +15,7 @@ const App = () => {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/personal" element={<Personal />} />
+            <Route path="/database" element={<Database />} />
           </Routes>
         </div>
       </div>
