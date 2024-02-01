@@ -1,7 +1,7 @@
 import DashboardItems from './DashBoardItems/DashBoardItems';
 import './Dashboard.css';
 import RecordTable from './Table/Table';
-import VideoFrames from './VideoFrames/VideoFrames';
+import DetectionFrame from './VideoFrames/DetectionFrame';
 import warning from './warning.png';
 
 const Dashboard = () => {
@@ -10,7 +10,7 @@ const Dashboard = () => {
         <div className="dashboard-wrapper">
             <div className='dashboard-video-wrapper'>
                 <DashboardItems />
-                <VideoFrames />
+                <DetectionFrame />
             </div>
             <div className='recorded-warning-wrapper'>
                 <div className='recorded-data'>

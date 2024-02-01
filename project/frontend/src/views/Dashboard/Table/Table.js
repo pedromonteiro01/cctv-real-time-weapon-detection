@@ -48,7 +48,7 @@ const RecordTable = () => {
           <label>
             No of row in table:
             <select className="records-dropdown dropdown">
-              <option value="5">5</option>
+              <option value="3">3</option>
               {/* Other options */}
             </select>
           </label>

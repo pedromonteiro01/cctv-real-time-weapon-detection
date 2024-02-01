@@ -13,5 +13,6 @@
 }
 
 .dashboard-items-selectors-items {
-    width: 100%;
+    /*width: 100%*/
+    width: 38rem;
 }
