@@ -9,7 +9,7 @@ import logout from './logout.png';
 import logo from './logo.png';
 
 const Navbar = () => {
-    const [selectedItem, setSelectedItem] = useState(null);
+    const [selectedItem, setSelectedItem] = useState('dashboard');
 
     const handleItemClick = (item) => {
         setSelectedItem(item);
