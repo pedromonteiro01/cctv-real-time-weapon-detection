@@ -1,12 +1,13 @@
 import React from 'react';
 import { Accordion } from 'react-bootstrap';
 
-const AccordionItem = ({ eventKey, header, body }) => {
+const AccordionItem = ({ eventKey, header, bodyP, bodyC }) => {
     return (
-        <Accordion.Item style={{backgroundColor: '#2F2F2F', marginBottom:'0.7rem'}} className='accordion-item' eventKey={eventKey}>
-            <Accordion.Header style={{color: '#fff'}}>{header}</Accordion.Header>
-            <Accordion.Body style={{color: '#fff'}}>
-                {body}
+        <Accordion.Item className='accordion-item' eventKey={eventKey}>
+            <Accordion.Header>{header}</Accordion.Header>
+            <Accordion.Body>
+                <p>{bodyP}</p>
+                <p>{bodyC}</p>
             </Accordion.Body>
         </Accordion.Item>
     );

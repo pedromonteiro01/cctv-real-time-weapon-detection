@@ -1,6 +1,6 @@
 .dashboard-wrapper {
     width: 100%;
-    padding: 2rem 1.5rem;
+    padding: 2rem 1.8rem;
     height: 100vh;
     background-color: #1E1E1E;
 }
@@ -13,7 +13,7 @@
     width: 100%;
     display: flex;
     justify-content: space-between;
-    height: 52%;
+    height: 50%;
 }
 
 .recorded-warning-wrapper {
@@ -22,7 +22,7 @@
     display: flex;
     justify-content: space-between;
     gap: 2rem;
-    height: 47%;
+    height: 49%;
 }
 
 .recorded-warning-wrapper .recorded-data {
@@ -74,4 +74,3 @@
     height: 100%;
     object-fit: contain;
 }
-

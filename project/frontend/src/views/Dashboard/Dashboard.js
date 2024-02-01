@@ -1,5 +1,6 @@
 import DashboardItems from './DashBoardItems/DashBoardItems';
 import './Dashboard.css';
+import RecordTable from './Table/Table';
 import VideoFrames from './VideoFrames/VideoFrames';
 import warning from './warning.png';
 
@@ -14,6 +15,7 @@ const Dashboard = () => {
             <div className='recorded-warning-wrapper'>
                 <div className='recorded-data'>
                     <p>Recorded Data</p>
+                    <RecordTable />
                 </div>
                 <div className='unsolved-issue'>
                     <p>Unsolved Issue</p>

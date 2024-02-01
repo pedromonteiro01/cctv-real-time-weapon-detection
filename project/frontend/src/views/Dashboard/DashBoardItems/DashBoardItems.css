@@ -8,13 +8,10 @@
     padding: 1rem 0;
 }
 
-.dashboard-items-selectors-items {
-    width: 100%;
+.dashboard-items {
+    width: 40%;
 }
 
-.accordion {
-    display: flex;
-    flex-direction: column;
-    gap: 0.7;
-    background-color: #2F2F2F;
+.dashboard-items-selectors-items {
+    width: 100%;
 }

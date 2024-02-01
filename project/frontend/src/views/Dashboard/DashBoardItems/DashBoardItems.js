@@ -18,17 +18,20 @@ const DashboardItems = () => {
                             <AccordionItem
                                 eventKey="0"
                                 header="1. Camera Entrance"
-                                body="Live"
+                                bodyP="Live"
+                                bodyC="Weapon Detected"
                             />
                             <AccordionItem
                                 eventKey="1"
                                 header="2. Camera Hall"
-                                body="Live"                            
+                                bodyP="Live"  º
+                                bodyC="Weapon Detected"                          
                                 />
                             <AccordionItem
                                 eventKey="2"
                                 header="3. Camera Hall"
-                                body="Live"
+                                bodyP="Live"
+                                bodyC="Weapon Detected"
                             />
                         </CustomAccordion>
                     </div>
