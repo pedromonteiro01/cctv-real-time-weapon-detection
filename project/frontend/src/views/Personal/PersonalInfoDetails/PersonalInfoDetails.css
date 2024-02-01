@@ -1,0 +1,40 @@
+.personal-info-details {
+    background-color: #1A1A1A;
+    width: 80%;
+    margin: 0 10%;
+    padding: 2.5% 10%;
+    height: 100%;
+    display: flex;
+    justify-content: space-between;
+}
+
+.personal-info-details-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    color: #fff;
+}
+
+.personal-info-details-items-item {
+    width: 20rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.personal-info-details-items-item p:first-child {
+    font-size: 1.2em;
+    width: 30%;
+}
+
+.personal-info-details-image {
+    width: 12rem;
+    height: 12rem;
+}
+
+.personal-info-details-image img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: contain;
+}
