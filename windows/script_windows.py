@@ -15,14 +15,13 @@ import importlib.util
 from pathlib import Path
 import time
 import logging
+import torch
 
 logging.basicConfig(filename='logs.log', level=logging.INFO, 
                     format='%(asctime)s:%(levelname)s:%(message)s')
 
-# Ensure CUDA and GPU availability
-if not torch.cuda.is_available():
-    raise Exception("CUDA is not available. Please check your PyTorch installation and CUDA configuration.")
-print(f"CUDA is available: {torch.cuda.is_available()}, GPU: {torch.cuda.get_device_name(0)}")
+device = "cuda" if torch.cuda.is_available() else "cpu"
+logging.info(f"Using device: {device}")
 
 # check if Git is installed
 if shutil.which("git") is None:
@@ -79,7 +78,7 @@ def setup_environment(repo_name):
 def train_yolov5(data_yaml, pretrained_weights, batch_size, epochs, img_size):
     start_time = time.time()
     print(f"Training YOLOv5 with batch size {batch_size} for {epochs} epochs...")
-    cmd = f"python yolov5/train.py --img {img_size} --batch {batch_size} --epochs {epochs} --data {data_yaml} --weights {pretrained_weights} --device 0"
+    cmd = f"python yolov5/train.py --img {img_size} --batch {batch_size} --epochs {epochs} --data {data_yaml} --weights {pretrained_weights} --device {device}"
     print("Running command:", cmd)
     os.system(cmd)
     
@@ -104,7 +103,7 @@ def predict(data_yaml, weights, batch_size, epochs, detect_folder):
     output_folder = os.path.join("yolov5/runs/detect", detect_folder)
 
     # run detect YOLOv5 command
-    cmd = f"python yolov5/detect.py --source dataset/valid/images --weights {weights} --conf 0.25 --img-size 640 --save-txt --name {detect_folder} --device 0"
+    cmd = f"python yolov5/detect.py --source dataset/valid/images --weights {weights} --conf 0.25 --img-size 640 --save-txt --name {detect_folder} --device {device}"
     os.system(cmd)
 
     end_time = time.time()
