@@ -1,7 +1,8 @@
 from django.urls import path
 from . import views
+from . import consumers
 
 urlpatterns = [
     path('', views.getRoutes, name="routes"),
-    path('video/', views.stream_video, name="stream video")
+    path('yolo-video-feed/', views.yolo_video_feed, name="stream yolo video"),
 ]
