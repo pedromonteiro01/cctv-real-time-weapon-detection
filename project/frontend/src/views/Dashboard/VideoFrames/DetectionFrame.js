@@ -13,7 +13,6 @@ const DetectionFrame = () => {
     const [videoUrl, setVideoUrl] = useState([]);
 
     useEffect(() => {
-        // Assuming you are connecting to Django running locally on port 8000
         const ws = new WebSocket('ws://localhost:8000/ws/text/');
 
         ws.onopen = () => {
@@ -22,7 +21,7 @@ const DetectionFrame = () => {
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            console.log('Message from WebSocket:', data.message); // Log each message received
+            console.log('Message from WebSocket:', data.message);
             setVideoUrl((prevMessages) => [...prevMessages, data.message]);
         };
 
@@ -40,7 +39,6 @@ const DetectionFrame = () => {
     }, []);
 
 
-    // Handler to toggle video expansion
     const toggleExpandVideo = () => {
         setIsExpanded(!isExpanded);
     };
@@ -50,7 +48,7 @@ const DetectionFrame = () => {
             <video src={videoUrl} alt='Surveillance feed' className='frame-video' loop autoPlay muted></video>
             {isExpanded && (
                 <button className="exit-fullscreen-button" onClick={toggleExpandVideo}>
-                    <CgClose /> {/* Icon for closing or minimizing */}
+                    <CgClose />
                 </button>
             )}
             <div className='overlay'>
