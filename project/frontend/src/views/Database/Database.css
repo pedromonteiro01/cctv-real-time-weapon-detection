@@ -26,7 +26,16 @@
     border: 1px solid #fff;
     justify-content: center;
     align-items: center;
+    transition: background-color 0.3s ease, color 0.3s ease, transform 0.3s ease;
+    cursor: pointer;
 }
+
+.database-buttons button:hover {
+    background-color: #fff;
+    color: #000;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
 
 .database-images-grid {
     display: grid;
@@ -38,7 +47,7 @@
 .database-image {
     position: relative;
     width: 100%;
-    height: auto; /* Maintain aspect ratio */
+    height: auto;
 }
 
 .database-image img {
@@ -47,7 +56,6 @@
     object-fit: contain;
 }
 
-/* Responsive adjustments */
 @media (max-width: 768px) {
     .database-wrapper {
         width: 100%;
@@ -63,13 +71,13 @@
     }
 
     .database-image {
-        height: 30vh; /* Smaller height for smaller screens */
+        height: 30vh;
     }
 }
 
 @media (max-width: 480px) {
     .database-buttons button {
-        width: auto; /* Buttons width auto-adjust */
-        padding: 0.5rem 1rem; /* More padding for touch targets */
+        width: auto;
+        padding: 0.5rem 1rem;
     }
 }
