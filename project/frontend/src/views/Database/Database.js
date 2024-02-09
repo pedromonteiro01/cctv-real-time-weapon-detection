@@ -1,5 +1,5 @@
 import React from 'react';
-import FrameOverlayUp from '../../components/FrameOverlayUp/FrameOverlayUp';
+import TopFrameOverlay from '../../components/TopFrameOverlay/TopFrameOverlay';
 import './Database.css';
 import frame from './frame.png';
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
@@ -7,7 +7,7 @@ import { FaArrowLeft, FaArrowRight } from "react-icons/fa6";
 const DatabaseImage = ({ src, alt }) => {
     return (
         <div className="database-image">
-            <FrameOverlayUp />
+            <TopFrameOverlay />
             <img src={src} alt={alt} />
         </div>
     );

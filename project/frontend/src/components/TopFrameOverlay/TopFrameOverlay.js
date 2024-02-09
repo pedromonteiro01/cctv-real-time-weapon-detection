@@ -1,8 +1,8 @@
 import { BiCctv, BiTargetLock } from "react-icons/bi";
 import { MdOutlineCalendarToday, MdOutlineWatchLater } from "react-icons/md";
-import './FrameOverlayUp.css';
+import './TopFrameOverlay.css';
 
-const FrameOverlayUp = () => {
+const TopFrameOverlay = () => {
     return (
         <div className='overlay-top'>
             <div className='camera-info-top'>
@@ -19,4 +19,4 @@ const FrameOverlayUp = () => {
     )
 }
 
-export default FrameOverlayUp;
+export default TopFrameOverlay;
