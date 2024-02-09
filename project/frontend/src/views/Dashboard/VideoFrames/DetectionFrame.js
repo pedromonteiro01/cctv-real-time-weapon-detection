@@ -10,7 +10,7 @@ import { BsSkipBackward } from "react-icons/bs";
 
 const DetectionFrame = () => {
     const [isExpanded, setIsExpanded] = useState(false);
-    const [messages, setMessages] = useState([]);
+    const [videoUrl, setVideoUrl] = useState([]);
 
     useEffect(() => {
         // Assuming you are connecting to Django running locally on port 8000
@@ -23,7 +23,7 @@ const DetectionFrame = () => {
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             console.log('Message from WebSocket:', data.message); // Log each message received
-            setMessages((prevMessages) => [...prevMessages, data.message]);
+            setVideoUrl((prevMessages) => [...prevMessages, data.message]);
         };
 
         ws.onerror = (error) => {
@@ -47,7 +47,7 @@ const DetectionFrame = () => {
     
     return (
         <div className={`video-frame ${isExpanded ? 'expanded' : ''}`}>
-            <video src={""} alt='Surveillance feed' className='frame-video' loop autoPlay muted></video>
+            <video src={videoUrl} alt='Surveillance feed' className='frame-video' loop autoPlay muted></video>
             {isExpanded && (
                 <button className="exit-fullscreen-button" onClick={toggleExpandVideo}>
                     <CgClose /> {/* Icon for closing or minimizing */}

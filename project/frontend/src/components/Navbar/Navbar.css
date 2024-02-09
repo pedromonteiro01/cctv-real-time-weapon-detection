@@ -1,4 +1,7 @@
 .navbar-wrapper {
+    position: fixed;
+    left: 0;
+    top: 0;
     width: 10%;
     height: 100vh;
     background-color: #1A1A1A;

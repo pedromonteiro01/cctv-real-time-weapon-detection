@@ -1,14 +1,17 @@
 .database-wrapper {
-    width: 100%;
-    padding: 0 1.8rem;
-    height: 100vh;
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 90%;
+    padding: 0 1.8rem 2rem 1.8rem;
+    height: auto;
     background-color: #1E1E1E;
 }
 
 .database-buttons {
     height: 10vh;
     display: flex;
-    width: 95%;
+    width: 100%;
     justify-content: flex-end;
     gap: 1rem;
     padding: 2vh 0;
@@ -21,25 +24,52 @@
     background-color: #1A1A1A;
     color: #fff;
     border: 1px solid #fff;
-    display: flex;
     justify-content: center;
     align-items: center;
 }
 
-.database-images-wrapper {
-    height: 87vh;
-    display: flex;
-    justify-content: space-around;
+.database-images-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+    grid-gap: 3rem;
+    padding: 2vh 0;
 }
 
 .database-image {
     position: relative;
     width: 100%;
-    height: 40vh;
+    height: auto; /* Maintain aspect ratio */
 }
 
 .database-image img {
     width: 100%;
     height: 100%;
     object-fit: contain;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .database-wrapper {
+        width: 100%;
+    }
+
+    .database-buttons {
+        justify-content: space-between;
+        padding: 2vh 2vw;
+    }
+
+    .database-images-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+
+    .database-image {
+        height: 30vh; /* Smaller height for smaller screens */
+    }
+}
+
+@media (max-width: 480px) {
+    .database-buttons button {
+        width: auto; /* Buttons width auto-adjust */
+        padding: 0.5rem 1rem; /* More padding for touch targets */
+    }
 }

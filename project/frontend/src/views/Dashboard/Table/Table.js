@@ -49,14 +49,12 @@ const RecordTable = () => {
             No of row in table:
             <select className="records-dropdown dropdown">
               <option value="3">3</option>
-              {/* Other options */}
             </select>
           </label>
           <label>
             Sort by:
             <select className="sort-dropdown dropdown">
               <option value="date">Date</option>
-              {/* Other sorting options */}
             </select>
           </label>
         </div>
