@@ -11,6 +11,29 @@ import { BsSkipBackward } from "react-icons/bs";
 const DetectionFrame = () => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [videoUrl, setVideoUrl] = useState([]);
+    const [wsConnection, setWsConnection] = useState(null);
+
+    const startVideoStream = () => {
+        if (wsConnection === null) {
+            const ws = new WebSocket('ws://localhost:8000/ws/video/');
+            ws.onopen = () => {
+                console.log('WebSocket Connected');
+            };
+            ws.onmessage = (event) => {
+                const blob = new Blob([event.data], { type: 'image/jpeg' });
+                const url = URL.createObjectURL(blob);
+                setVideoUrl(url);
+            };
+            ws.onerror = (error) => {
+                console.log('WebSocket Error:', error);
+            };
+            ws.onclose = () => {
+                console.log('WebSocket Disconnected');
+                setWsConnection(null);
+            };
+            setWsConnection(ws);
+        }
+    };
 
     useEffect(() => {
         const ws = new WebSocket('ws://localhost:8000/ws/text/');
@@ -42,10 +65,12 @@ const DetectionFrame = () => {
     const toggleExpandVideo = () => {
         setIsExpanded(!isExpanded);
     };
-    
+
     return (
         <div className={`video-frame ${isExpanded ? 'expanded' : ''}`}>
-            <video src={videoUrl} alt='Surveillance feed' className='frame-video' loop autoPlay muted></video>
+                        <button>Start Video Stream</button>
+
+            <img src={videoUrl} alt='Surveillance feed' className='frame-video' />
             {isExpanded && (
                 <button className="exit-fullscreen-button" onClick={toggleExpandVideo}>
                     <CgClose />
@@ -65,12 +90,12 @@ const DetectionFrame = () => {
                 <div className='controll-buttons'>
                     <div className='controll-buttons-1'>
                         <ControllButton icon={<PiFilmSlateLight />} />
-                        <ControllButton icon={<IoCameraOutline />} />
+                        <ControllButton onClick={startVideoStream} icon={<IoCameraOutline />} />
                         <ControllButton icon={<BsSkipBackward />} />
                     </div>
                     <div className='controll-buttons-2'>
                         <ControllButton icon={<CgController />} />
-                        <ControllButton icon={<CgMaximizeAlt onClick={toggleExpandVideo} />}  />
+                        <ControllButton icon={<CgMaximizeAlt onClick={toggleExpandVideo} />} />
                     </div>
                 </div>
             </div>
