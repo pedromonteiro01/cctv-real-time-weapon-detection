@@ -216,7 +216,7 @@ if __name__ == "__main__":
     print(f"Best weight file: {best_weight} with mAP50: {best_mAP50}")
     print(f"Number of Epochs: {best_epochs}, Batch Size: {best_batch_size}")
 
-    # Proceed to plot the results or further processing
+    # plot the accuracy results
     accuracy.plot_results(all_mAP50_values, all_epochs, all_batch_sizes, all_img_sizes)
 
     # import IoU script from github
