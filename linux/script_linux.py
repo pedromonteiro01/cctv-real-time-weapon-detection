@@ -20,6 +20,17 @@ import torch
 logging.basicConfig(filename='logs.log', level=logging.INFO, 
                     format='%(asctime)s:%(levelname)s:%(message)s')
 
+# check and remove 'runs' directory if it exists
+def check_and_remove_runs_dir():
+    runs_dir = Path("yolov5/runs")
+    if runs_dir.is_dir():
+        confirm = input("The 'runs' directory exists and will be deleted. Are you sure? (yes/no): ").strip().lower()
+        if confirm == 'yes':
+            shutil.rmtree(runs_dir)
+            print("'runs' directory removed successfully.")
+        else:
+            print("Operation cancelled by the user. Exiting script.")
+            exit()
 
 # check if Git is installed
 if shutil.which("git") is None:
@@ -135,9 +146,9 @@ def run_tests(): # execute test for metrics extraction functions
 if __name__ == "__main__":
     DATA_YAML = "dataset.yaml" # define yaml file path
     PRETRAINED_WEIGHTS = "yolov5s-model.pt" # define pre trained weights file path
-    BATCH_SIZES = [16, 32, 64] # batch sizes to test
-    EPOCHS = [50, 80, 100, 120, 150] # epochs to test
-    IMG_SIZES = [256, 640]
+    BATCH_SIZES = [1] # batch sizes to test
+    EPOCHS = [2] # epochs to test
+    IMG_SIZES = [256]
     DETECT_FOLDER = "yolov5/runs/detect" # folder with images to detect
     VALID_FOLDER = "dataset/valid/labels" # folder with real labels
 
@@ -151,6 +162,8 @@ if __name__ == "__main__":
 
     run_tests() # run metrics pytests
 
+    check_and_remove_runs_dir()
+
     use_gpu = check_cuda()
 
     evaluation_details = []
@@ -162,10 +175,11 @@ if __name__ == "__main__":
                 # train model
                 print(f"Starting training for batch size {batch_size} and epoch {epoch}...")
                 trained_weights = train_yolov5(DATA_YAML, PRETRAINED_WEIGHTS, batch_size, epoch, img_size, use_gpu)
+                print(f"Finished training for batch size {batch_size} epoch {epoch}")
                 
                 # predict and save results
                 print(f"Starting prediction for batch size {batch_size} and epoch {epoch}...")
-                detect_folder = f"batch{batch_size}_epoch{epoch}"
+                detect_folder = f"batch{batch_size}_epoch{epoch}_img{img_size}"
                 output_folder = predict(DATA_YAML, trained_weights, batch_size, epoch, detect_folder)
 
                 # import confusion matrix script using importlib to avoid importing errors
@@ -191,20 +205,19 @@ if __name__ == "__main__":
                 accuracy = importlib.util.module_from_spec(accuracy_spec)
                 accuracy_spec.loader.exec_module(accuracy)
 
-                output = accuracy.evaluate_model(trained_weights)
+                output = accuracy.evaluate_model(trained_weights, img_size)
                 mAP50 = accuracy.extract_metrics(output)
 
                 evaluation_details.append((mAP50, epoch, batch_size))
 
     # find the best model after all trainings and evaluations
-    best_weight, best_mAP50, best_epochs, best_batch_size, all_mAP50_values, all_epochs, all_batch_sizes = accuracy.find_best_config()
-    
-    # output best file in terms of accuracy
+    best_weight, best_mAP50, best_epochs, best_batch_size, all_mAP50_values, all_epochs, all_batch_sizes, all_img_sizes = accuracy.find_best_config(IMG_SIZES)
+
     print(f"Best weight file: {best_weight} with mAP50: {best_mAP50}")
     print(f"Number of Epochs: {best_epochs}, Batch Size: {best_batch_size}")
 
-    # plot accuracy results of all evaluations
-    accuracy.plot_results(all_mAP50_values, all_epochs, all_batch_sizes)
+    # Proceed to plot the results or further processing
+    accuracy.plot_results(all_mAP50_values, all_epochs, all_batch_sizes, all_img_sizes)
 
     # import IoU script from github
     iou2_spec = importlib.util.spec_from_file_location("iou2", "iou2.py")
@@ -212,7 +225,7 @@ if __name__ == "__main__":
     iou2_spec.loader.exec_module(iou2)
     
     print(os.getcwd())
-    iou2.main(DETECT_FOLDER, VALID_FOLDER) # call IoU function
+    iou2.main(DETECT_FOLDER, VALID_FOLDER, IMG_SIZES) # call IoU function
             
     total_end_time = time.time()
     total_duration = total_end_time - total_start_time
