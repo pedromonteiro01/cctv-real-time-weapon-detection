@@ -23,6 +23,18 @@ logging.basicConfig(filename='logs.log', level=logging.INFO,
 device = "cuda" if torch.cuda.is_available() else "cpu"
 logging.info(f"Using device: {device}")
 
+# check and remove 'runs' directory if it exists
+def check_and_remove_runs_dir():
+    runs_dir = Path("yolov5/runs")
+    if runs_dir.is_dir():
+        confirm = input("The 'runs' directory exists and will be deleted. Are you sure? (yes/no): ").strip().lower()
+        if confirm == 'yes':
+            shutil.rmtree(runs_dir)
+            print("'runs' directory removed successfully.")
+        else:
+            print("Operation cancelled by the user. Exiting script.")
+            exit()
+
 # check if Git is installed
 if shutil.which("git") is None:
     print("Git is not found on your system.")
@@ -150,7 +162,7 @@ if __name__ == "__main__":
                 
                 # predict and save results
                 print(f"Starting prediction for batch size {batch_size} and epoch {epoch}...")
-                detect_folder = f"batch{batch_size}_epoch{epoch}"
+                detect_folder = f"batch{batch_size}_epoch{epoch}_img{img_size}"
                 output_folder = predict(DATA_YAML, trained_weights, batch_size, epoch, detect_folder)
 
                 # import confusion matrix script using importlib to avoid importing errors
@@ -176,20 +188,20 @@ if __name__ == "__main__":
                 accuracy = importlib.util.module_from_spec(accuracy_spec)
                 accuracy_spec.loader.exec_module(accuracy)
 
-                output = accuracy.evaluate_model(trained_weights)
+                output = accuracy.evaluate_model(trained_weights, img_size)
                 mAP50 = accuracy.extract_metrics(output)
 
                 evaluation_details.append((mAP50, epoch, batch_size))
 
     # find the best model after all trainings and evaluations
-    best_weight, best_mAP50, best_epochs, best_batch_size, all_mAP50_values, all_epochs, all_batch_sizes = accuracy.find_best_config()
+    best_weight, best_mAP50, best_epochs, best_batch_size, all_mAP50_values, all_epochs, all_batch_sizes, all_img_sizes = accuracy.find_best_config(IMG_SIZES)
     
     # output best file in terms of accuracy
     print(f"Best weight file: {best_weight} with mAP50: {best_mAP50}")
     print(f"Number of Epochs: {best_epochs}, Batch Size: {best_batch_size}")
 
     # plot accuracy results of all evaluations
-    accuracy.plot_results(all_mAP50_values, all_epochs, all_batch_sizes)
+    accuracy.plot_results(all_mAP50_values, all_epochs, all_batch_sizes, all_img_sizes)
 
     # import IoU script from github
     iou2_spec = importlib.util.spec_from_file_location("iou2", "iou2.py")
@@ -197,7 +209,7 @@ if __name__ == "__main__":
     iou2_spec.loader.exec_module(iou2)
     
     print(os.getcwd())
-    iou2.main(DETECT_FOLDER, VALID_FOLDER) # call IoU function
+    iou2.main(DETECT_FOLDER, VALID_FOLDER, IMG_SIZES) # call IoU function
             
     total_end_time = time.time()
     total_duration = total_end_time - total_start_time
