@@ -4,8 +4,12 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 import aiofiles 
 from datetime import datetime 
 import subprocess
-import tempfile
+import torch
 import os
+import base64
+import cv2
+import json
+from uvicorn.protocols.utils import ClientDisconnected
 
 class TextMessageConsumer(AsyncWebsocketConsumer):
     log_file_path = 'websocket_logs.log'
@@ -22,7 +26,7 @@ class TextMessageConsumer(AsyncWebsocketConsumer):
             }))
             await self.async_log_message(message)
             c += 1
-            await asyncio.sleep(10)  # wait 10 seconds
+            await asyncio.sleep(30)  # wait 10 seconds
 
     async def disconnect(self, close_code):
         pass
@@ -36,32 +40,47 @@ class TextMessageConsumer(AsyncWebsocketConsumer):
         async with aiofiles.open(self.log_file_path, mode='a') as log_file:
             await log_file.write(log_message)
 
+model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/yolov5s-model.pt')
+
 class VideoStreamConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.accept()
-
-        await self.stream_video_detection('base/video.mp4', 'base/yolov5s-model.pt')
+        asyncio.get_event_loop().create_task(self.stream_video())
 
     async def disconnect(self, close_code):
         pass
 
-    async def stream_video_detection(self, video_path, weights):
-        detect_script_path = 'base/yolov5/detect.py'
-        
-        with tempfile.TemporaryDirectory() as temp_dir:
-            output_path = os.path.join(temp_dir, 'output')
-            os.makedirs(output_path, exist_ok=True)
+    async def stream_video(self):
+        global model         
+        cap = cv2.VideoCapture('base/sample3.mp4')
+        alert_sent = False
+
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            results = model(frame)
+
+            '''
+            for det in results.xyxy[0]:  # detections for each frame
+                if det[-1] == 0:  # Ensure this matches the class ID for "person"
+                    await self.send(text_data=json.dumps({
+                                        'type': 'warning',
+                                        'message': 'Person detected!'
+                            }))                    
+                    break
+            '''
+
+            annotated_frame = results.render()[0]
+
+            _, buffer = cv2.imencode('.jpg', annotated_frame)
+            frame_base64 = base64.b64encode(buffer).decode('utf-8')
+
+            try:
+                await self.send(text_data=json.dumps({'frame': frame_base64}))
+            except ClientDisconnected:
+                print("Client disconnected, stopping video stream.")
+                break
             
-            subprocess.run([
-                'python3', detect_script_path,
-                '--source', video_path,
-                '--exist-ok'
-            ], check=True)
-
-            for frame_name in sorted(os.listdir(output_path)):
-                frame_path = os.path.join(output_path, frame_name)
-                with open(frame_path, 'rb') as frame:
-                    await self.send(bytes_data=frame.read())
-                    
-                await asyncio.sleep(0.1)  
-
+        cap.release()

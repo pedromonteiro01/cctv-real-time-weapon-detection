@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import './DetectionFrame.css';
 import ControllButton from '../../../components/ControllButton/ControllButton';
 import { CgMaximizeAlt, CgController, CgClose } from "react-icons/cg";
@@ -7,58 +7,38 @@ import { PiFilmSlateLight } from "react-icons/pi";
 import { BiCctv, BiTargetLock } from "react-icons/bi";
 import { MdOutlineCalendarToday, MdOutlineWatchLater } from "react-icons/md";
 import { BsSkipBackward } from "react-icons/bs";
+import frame from './frame.png';
+import toast from 'react-hot-toast';
 
 const DetectionFrame = () => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [videoUrl, setVideoUrl] = useState([]);
-    const [wsConnection, setWsConnection] = useState(null);
-
-    const startVideoStream = () => {
-        if (wsConnection === null) {
-            const ws = new WebSocket('ws://localhost:8000/ws/video/');
-            ws.onopen = () => {
-                console.log('WebSocket Connected');
-            };
-            ws.onmessage = (event) => {
-                const blob = new Blob([event.data], { type: 'image/jpeg' });
-                const url = URL.createObjectURL(blob);
-                setVideoUrl(url);
-            };
-            ws.onerror = (error) => {
-                console.log('WebSocket Error:', error);
-            };
-            ws.onclose = () => {
-                console.log('WebSocket Disconnected');
-                setWsConnection(null);
-            };
-            setWsConnection(ws);
-        }
-    };
-
+    const canvasRef = useRef(null);
+    
     useEffect(() => {
-        const ws = new WebSocket('ws://localhost:8000/ws/text/');
-
-        ws.onopen = () => {
-            console.log('WebSocket Connected');
+        const ws = new WebSocket('ws://localhost:8000/ws/video/');
+        ws.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+            const frame = data.frame;
+            if (data.type === 'warning') {
+                toast(data.message, {
+                  icon: '⚠️',
+                  style: {
+                    border: '1px solid #f97316',
+                    padding: '16px',
+                    color: '#f97316',
+                  },
+                });
+              }
+            const context = canvasRef.current.getContext('2d');
+            const image = new Image();
+            image.onload = () => {
+                context.drawImage(image, 0, 0, canvasRef.current.width, canvasRef.current.height);
+            };
+            image.src = `data:image/jpeg;base64,${frame}`;
         };
 
-        ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            console.log('Message from WebSocket:', data.message);
-            setVideoUrl((prevMessages) => [...prevMessages, data.message]);
-        };
-
-        ws.onerror = (error) => {
-            console.log('WebSocket Error:', error);
-        };
-
-        ws.onclose = () => {
-            console.log('WebSocket Disconnected');
-        };
-
-        return () => {
-            ws.close();
-        };
+        return () => ws.close();
     }, []);
 
 
@@ -68,9 +48,7 @@ const DetectionFrame = () => {
 
     return (
         <div className={`video-frame ${isExpanded ? 'expanded' : ''}`}>
-                        <button>Start Video Stream</button>
-
-            <img src={videoUrl} alt='Surveillance feed' className='frame-video' />
+            <canvas className='frame-video' ref={canvasRef}></canvas>
             {isExpanded && (
                 <button className="exit-fullscreen-button" onClick={toggleExpandVideo}>
                     <CgClose />
@@ -90,7 +68,7 @@ const DetectionFrame = () => {
                 <div className='controll-buttons'>
                     <div className='controll-buttons-1'>
                         <ControllButton icon={<PiFilmSlateLight />} />
-                        <ControllButton onClick={startVideoStream} icon={<IoCameraOutline />} />
+                        <ControllButton icon={<IoCameraOutline />} />
                         <ControllButton icon={<BsSkipBackward />} />
                     </div>
                     <div className='controll-buttons-2'>

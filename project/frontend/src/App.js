@@ -10,8 +10,9 @@ import { Toaster } from 'react-hot-toast';
 
 const App = () => {
   return (
-    <WebSocketProvider wsUrl="ws://localhost:8000/ws/text/">
+    <>
       <Toaster position="top-right" />
+      <WebSocketProvider wsUrl="ws://localhost:8000/ws/video/">
       <Router>
         <div className="app-container">
           <Navbar />
@@ -24,7 +25,8 @@ const App = () => {
           </div>
         </div>
       </Router>
-    </WebSocketProvider>
+      </WebSocketProvider>
+      </>
   );
 };
 
