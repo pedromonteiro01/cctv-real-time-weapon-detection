@@ -10,7 +10,7 @@ import { BsSkipBackward } from "react-icons/bs";
 import frame from './frame.png';
 import toast from 'react-hot-toast';
 
-const DetectionFrame = () => {
+const DetectionFrame = ({ onWeaponDetected }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [videoUrl, setVideoUrl] = useState([]);
     const canvasRef = useRef(null);
@@ -29,6 +29,8 @@ const DetectionFrame = () => {
                     color: '#f97316',
                   },
                 });
+
+                onWeaponDetected && onWeaponDetected();
               }
             const context = canvasRef.current.getContext('2d');
             const image = new Image();

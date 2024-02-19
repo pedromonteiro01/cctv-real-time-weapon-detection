@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import DashboardItems from './DashBoardItems/DashBoardItems';
 import './Dashboard.css';
 import RecordTable from './Table/Table';
@@ -5,12 +6,18 @@ import DetectionFrame from './VideoFrames/DetectionFrame';
 import warning from './warning.png';
 
 const Dashboard = () => {
+    const [isAlert, setIsAlert] = useState(false);
+
+    const handleWeaponDetection = () => {
+        setIsAlert(true);
+        setTimeout(() => setIsAlert(false), 5000);
+    };
 
     return (
         <div className="dashboard-wrapper">
             <div className='dashboard-video-wrapper'>
                 <DashboardItems />
-                <DetectionFrame />
+                <DetectionFrame onWeaponDetected={handleWeaponDetection} />
             </div>
             <div className='recorded-warning-wrapper'>
                 <div className='recorded-data'>
@@ -25,7 +32,7 @@ const Dashboard = () => {
                             <p>Weapon detection on:</p>
                             <p>Camera Hall</p>
                         </div>
-                        <div className='warning-img-wrapper'>
+                        <div className={`warning-img-wrapper ${isAlert ? 'animate-alert' : ''}`}>
                             <img src={warning} alt='warning' />
                         </div>
                     </div>

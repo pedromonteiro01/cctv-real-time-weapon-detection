@@ -2,7 +2,7 @@ import asyncio
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 import aiofiles 
-from datetime import datetime 
+from datetime import datetime, timedelta
 import subprocess
 import torch
 import os
@@ -40,7 +40,7 @@ class TextMessageConsumer(AsyncWebsocketConsumer):
         async with aiofiles.open(self.log_file_path, mode='a') as log_file:
             await log_file.write(log_message)
 
-model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/yolov5s-model.pt')
+model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best.pt')
 
 class VideoStreamConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -53,7 +53,8 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
     async def stream_video(self):
         global model         
         cap = cv2.VideoCapture('base/sample3.mp4')
-        alert_sent = False
+        last_alert_time = datetime.min
+        alert_interval = timedelta(seconds=20)  # Minimum interval between alerts
 
         while cap.isOpened():
             ret, frame = cap.read()
@@ -61,19 +62,18 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
                 break
 
             results = model(frame)
+            current_time = datetime.now()
 
-            '''
-            for det in results.xyxy[0]:  # detections for each frame
-                if det[-1] == 0:  # Ensure this matches the class ID for "person"
+            for det in results.xyxy[0]:
+                if det[-1] == 0 and current_time - last_alert_time >= alert_interval:
                     await self.send(text_data=json.dumps({
-                                        'type': 'warning',
-                                        'message': 'Person detected!'
-                            }))                    
+                        'type': 'warning',
+                        'message': 'Weapon detected!'
+                    }))                    
+                    last_alert_time = current_time
                     break
-            '''
 
             annotated_frame = results.render()[0]
-
             _, buffer = cv2.imencode('.jpg', annotated_frame)
             frame_base64 = base64.b64encode(buffer).decode('utf-8')
 
