@@ -1,12 +1,10 @@
 from django.shortcuts import render
-import os
 from django.conf import settings
 from rest_framework.decorators import api_view
-from django.http import JsonResponse, StreamingHttpResponse
+from django.http import JsonResponse
 from django.views.decorators import gzip
-import subprocess
 from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
+from datetime import datetime
 
 channel_layer = get_channel_layer()
 
@@ -20,25 +18,23 @@ def getRoutes(request):
 def getVideoFrames(request):
     return JsonResponse('Get Video Frames View', safe=False)
 
-@gzip.gzip_page
-def yolo_video_feed(request):
-    # Open subprocess to execute YOLO detection script
-    yolo_process = subprocess.Popen(YOLO_COMMAND, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    print("YOLO detection process started...")  # Log that the YOLO detection process is running
+def get_cameras_info(request):
+    current_day = datetime.now().strftime('%Y-%m-%d')
+    current_hour = datetime.now().strftime('%H:%M:%S')
 
-    def generate():
-        # Read output from YOLO detection process
-        while True:
-            frame_bytes = yolo_process.stdout.readline()
-            print("sending frames...")
+    # Hardcoded camera information
+    cameras = [
+        {"id": "1", "location": "Hall"},
+        {"id": "2", "location": "Library"},
+        {"id": "3", "location": "Main Entrance"},
+        {"id": "4", "location": "Parking Lot"},
+        {"id": "5", "location": "Cafeteria"},
+        {"id": "6", "location": "Gym"},
+    ]
 
-            # Check if process has terminated
-            if not frame_bytes:
-                break
+    # Add current day and hour to each camera info
+    for camera in cameras:
+        camera["current_day"] = current_day
+        camera["current_hour"] = current_hour
 
-            # Send frame bytes to the frontend
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-
-    # Return streaming HTTP response with processed video frames
-    return StreamingHttpResponse(generate(), content_type='multipart/x-mixed-replace; boundary=frame')
+    return JsonResponse({"cameras": cameras})

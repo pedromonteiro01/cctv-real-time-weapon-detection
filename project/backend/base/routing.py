@@ -1,6 +1,7 @@
-from django.urls import path
-from .consumers import TextMessageConsumer, VideoStreamConsumer
+from django.urls import re_path
+from .consumers import VideoStreamConsumer, CameraInfoConsumer
 
 websocket_urlpatterns = [
-    path('ws/video/', VideoStreamConsumer.as_asgi())
+    re_path(r'ws/video/', VideoStreamConsumer.as_asgi()),
+    re_path(r'ws/camera_info/', CameraInfoConsumer.as_asgi()),
 ]
