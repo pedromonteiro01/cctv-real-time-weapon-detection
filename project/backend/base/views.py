@@ -22,7 +22,6 @@ def get_cameras_info(request):
     current_day = datetime.now().strftime('%Y-%m-%d')
     current_hour = datetime.now().strftime('%H:%M:%S')
 
-    # Hardcoded camera information
     cameras = [
         {"id": "1", "location": "Hall"},
         {"id": "2", "location": "Library"},
@@ -32,7 +31,6 @@ def get_cameras_info(request):
         {"id": "6", "location": "Gym"},
     ]
 
-    # Add current day and hour to each camera info
     for camera in cameras:
         camera["current_day"] = current_day
         camera["current_hour"] = current_hour

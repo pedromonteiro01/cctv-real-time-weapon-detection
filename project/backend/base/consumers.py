@@ -1,11 +1,8 @@
 import asyncio
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
-import aiofiles 
 from datetime import datetime, timedelta
-import subprocess
 import torch
-import os
 import base64
 import cv2
 import json
@@ -15,9 +12,8 @@ model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best.pt')
 
 class VideoStreamConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        self.cap = cv2.VideoCapture('base/sample3.mp4')  # Initialize video capture here
+        self.cap = cv2.VideoCapture('base/sample3.mp4')
         await self.accept()
-        # Starting both tasks
         self.time_task = asyncio.create_task(self.send_time_updates())
         self.video_task = asyncio.create_task(self.stream_video())
 
@@ -38,13 +34,12 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
                     'day': day,
                     'hour': hour,
                 }))
-                await asyncio.sleep(1)  # Send time update every second
+                await asyncio.sleep(1)
             except Exception as e:
                 print(f"Error sending time update: {e}")
                 break
 
     async def stream_video(self):
-        # Example static camera information
         camera_info = {
             'id': '123',
             'location': 'Main Entrance',
@@ -70,7 +65,7 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
                     await self.send(text_data=json.dumps({
                         'type': 'warning',
                         'message': 'Weapon detected!',
-                        **camera_info  # Include camera info in the warning message
+                        **camera_info
                     }))                    
                     last_alert_time = current_time
                     break
@@ -82,7 +77,7 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
             try:
                 await self.send(text_data=json.dumps({
                     'frame': frame_base64,
-                    **camera_info  # Send camera info with each frame
+                    **camera_info
                 }))
             except ClientDisconnected:
                 print("Client disconnected, stopping video stream.")
@@ -93,15 +88,12 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
 class CameraInfoConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.accept()
-        # Schedule the send_camera_info task to run immediately upon connection
         asyncio.create_task(self.send_camera_info())
 
     async def disconnect(self, close_code):
-        # Handle WebSocket disconnection here if necessary
         pass
 
     async def send_camera_info(self):
-        # Hardcoded camera information
         cameras = [
             {"id": "1", "location": "Hall"},
             {"id": "2", "location": "Library"},
@@ -121,6 +113,4 @@ class CameraInfoConsumer(AsyncWebsocketConsumer):
 
             await self.send(text_data=json.dumps({"cameras": cameras}))
             
-            # Wait before sending the next update
-            # Adjust the sleep time as needed
             await asyncio.sleep(1)
