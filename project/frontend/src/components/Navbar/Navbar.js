@@ -4,8 +4,7 @@ import { Link } from 'react-router-dom';
 import dashboard from './dashboard.png';
 import database from './database.png';
 import personal from './user.png';
-import settings from './setting.png';
-import logout from './logout.png';
+import upload from './upload.png';
 import logo from './logo.png';
 
 const Navbar = () => {
@@ -18,9 +17,8 @@ const Navbar = () => {
     const navbarItems = [
         { name: 'dashboard', path: '/' },
         { name: 'database', path: '/database' },
+        { name: 'upload', path: '/upload' },
         { name: 'personal', path: '/personal' },
-        { name: 'settings', path: '/settings' },
-        { name: 'logout', path: '/logout' },
     ];
 
     return (
@@ -32,7 +30,7 @@ const Navbar = () => {
                 {navbarItems.map((item, index) => (
                     <li key={index} onClick={() => handleItemClick(item.name)}>
                         <Link to={item.path} className={`navbar-item ${selectedItem === item.name ? 'selected' : ''}`}>
-                            <img src={{ dashboard, database, personal, settings, logout }[item.name]} alt={item.name} />
+                            <img src={{ dashboard, database, upload, personal }[item.name]} alt={item.name} />
                             {item.name.charAt(0).toUpperCase() + item.name.slice(1)}
                         </Link>
                     </li>

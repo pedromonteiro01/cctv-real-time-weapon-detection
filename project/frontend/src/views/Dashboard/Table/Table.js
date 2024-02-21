@@ -1,14 +1,6 @@
 import React, { useState } from 'react';
 import './RecordTable.css';
 
-// mock data
-const initialData = [
-  { no: 5, camera: 'Camera Hall', weaponType: 'Knife', date: '01.02.24', time: '10:01:21', site: 'Hall' },
-  { no: 4, camera: 'Camera Hall', weaponType: 'Weapon', date: '01.2.24', time: '10:00:51', site: 'Hall' },
-  { no: 3, camera: 'Camera Hall', weaponType: 'Weapon', date: '01.2.24', time: '10:00:51', site: 'Hall' },
-  // ... more records
-];
-
 const TableHeader = () => {
   return (
     <thead>
@@ -37,24 +29,36 @@ const TableRow = ({ record }) => {
   );
 };
 
-const RecordTable = () => {
-  const [data, setData] = useState(initialData);
+const RecordTable = ({ records }) => {
+  const recordsPerPage = 3;
+  const [currentPage, setCurrentPage] = useState(1);
+  const maxPage = Math.ceil(records.length / recordsPerPage);
+
+  const indexOfLastRecord = currentPage * recordsPerPage;
+  const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
+  const currentRecords = records.slice(indexOfFirstRecord, indexOfLastRecord);
+
+  const handlePageChange = (event) => {
+    setCurrentPage(Number(event.target.value));
+  };
 
   return (
     <div className="table-container">
       <div className="table-header">
-        <span>5,000 records</span>
+        <span>{records.length} records</span>
         <div>
           <label>
-            No of row in table:
-            <select className="records-dropdown dropdown">
-              <option value="3">3</option>
-            </select>
-          </label>
-          <label>
-            Sort by:
-            <select className="sort-dropdown dropdown">
-              <option value="date">Date</option>
+            Page Number:
+            <select
+              value={currentPage}
+              onChange={handlePageChange}
+              className="records-dropdown"
+            >
+              {Array.from({ length: maxPage }, (_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  {i + 1}
+                </option>
+              ))}
             </select>
           </label>
         </div>
@@ -62,9 +66,13 @@ const RecordTable = () => {
       <table>
         <TableHeader />
         <tbody>
-          {data.map((record, index) => (
-            <TableRow key={index} record={record} />
-          ))}
+          {currentRecords.length > 0 ? (
+            currentRecords.map((record, index) => <TableRow key={index} record={record} />)
+          ) : (
+            <tr>
+              <td colSpan="6" style={{ textAlign: 'center' }}>No records available</td>
+            </tr>
+          )}
         </tbody>
       </table>
     </div>

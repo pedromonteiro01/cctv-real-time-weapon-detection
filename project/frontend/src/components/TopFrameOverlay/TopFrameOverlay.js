@@ -2,17 +2,17 @@ import { BiCctv, BiTargetLock } from "react-icons/bi";
 import { MdOutlineCalendarToday, MdOutlineWatchLater } from "react-icons/md";
 import './TopFrameOverlay.css';
 
-const TopFrameOverlay = () => {
+const TopFrameOverlay = (props) => {
     return (
         <div className='overlay-top'>
             <div className='camera-info-top'>
                 <div className='camera-info-wrapper-top'>
-                    <p><BiCctv /> Camera 04</p>
-                    <p><BiTargetLock /> Hall</p>
+                    <p><BiCctv /> Camera {props.id}</p>
+                    <p><BiTargetLock /> {props.location}</p>
                 </div>
                 <div className='camera-info-wrapper-top'>
-                    <p><MdOutlineCalendarToday /> 22/09/2018</p>
-                    <p><MdOutlineWatchLater /> 09:27:00</p>
+                    <p><MdOutlineCalendarToday /> {props.day}</p>
+                    <p><MdOutlineWatchLater /> {props.hour}</p>
                 </div>
             </div>
         </div>

@@ -28,6 +28,10 @@
     align-items: center;
     padding-bottom: 10px;
   }
+
+  .table-header select {
+    margin-left: 0.5rem;
+  }
   
   .sort-dropdown, .records-dropdown {
     background-color: #333;
