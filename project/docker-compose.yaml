@@ -4,12 +4,10 @@ services:
   mysql:
     image: mysql:latest
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: mydatabase
-      MYSQL_USER: user
-      MYSQL_PASSWORD: userpassword
-    volumes:
-      - mysql-data:/var/lib/mysql
+      MYSQL_ROOT_PASSWORD: rootpassword  # Root password
+      MYSQL_DATABASE: mydatabase  # Database name
+      MYSQL_USER: user  # User
+      MYSQL_PASSWORD: userpassword  # User password
     ports:
       - "3306:3306"
 
@@ -38,12 +36,13 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    ports:
-      - "8000:8000"
+    command: sh -c "python manage.py wait_for_db && python manage.py migrate && uvicorn backend.asgi:application --host 0.0.0.0 --reload"
     volumes:
       - ./backend:/app
     depends_on:
       - mysql
+    ports:
+      - "8000:8000"
 
 volumes:
   mysql-data:

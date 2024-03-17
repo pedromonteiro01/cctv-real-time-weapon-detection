@@ -1,38 +1,15 @@
-from django.shortcuts import render
-from django.conf import settings
+from django.contrib.auth import authenticate, login
+from rest_framework import status
+from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from django.http import JsonResponse
-from django.views.decorators import gzip
-from channels.layers import get_channel_layer
-from datetime import datetime
 
-channel_layer = get_channel_layer()
-
-VIDEO_FILE = "./video.mp4"
-YOLO_COMMAND = ["python3", "../yolov5/detect.py", "--source", VIDEO_FILE, "../yolov5/yolov5s-model.pt"]
-
-# Create your views here.
-def getRoutes(request):
-    return JsonResponse('Hello', safe=False)
-
-def getVideoFrames(request):
-    return JsonResponse('Get Video Frames View', safe=False)
-
-def get_cameras_info(request):
-    current_day = datetime.now().strftime('%Y-%m-%d')
-    current_hour = datetime.now().strftime('%H:%M:%S')
-
-    cameras = [
-        {"id": "1", "location": "Hall"},
-        {"id": "2", "location": "Library"},
-        {"id": "3", "location": "Main Entrance"},
-        {"id": "4", "location": "Parking Lot"},
-        {"id": "5", "location": "Cafeteria"},
-        {"id": "6", "location": "Gym"},
-    ]
-
-    for camera in cameras:
-        camera["current_day"] = current_day
-        camera["current_hour"] = current_hour
-
-    return JsonResponse({"cameras": cameras})
+@api_view(['POST'])
+def login_view(request):
+    username = request.data.get('username')
+    password = request.data.get('password')
+    user = authenticate(request, username=username, password=password)
+    if user is not None:
+        login(request, user)  # This is missing in many custom login views
+        return Response({"message": "Login successful"}, status=status.HTTP_200_OK)
+    else:
+        return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)

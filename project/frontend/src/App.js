@@ -5,26 +5,37 @@ import Dashboard from './views/Dashboard/Dashboard';
 import './App.css';
 import Personal from './views/Personal/Personal';
 import Dataset from './views/Database/Database';
-import { WebSocketProvider } from './context/WebSocketContext/WebSocketContext';
 import { Toaster } from 'react-hot-toast';
+import Login from './views/Login/Login';
+import { AuthProvider, useAuth } from './context/AuthContext/AuthContext';
+import PrivateRoute from './views/PrivateRoute/PrivateRoute';
+
+const AppContent = () => {
+  const { isLoggedIn } = useAuth();
+
+  return (
+    <div className="app-container">
+      {isLoggedIn && <Navbar />}
+      <div className="content-container">
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+          <Route path="/personal" element={<PrivateRoute><Personal /></PrivateRoute>} />
+          <Route path="/database" element={<PrivateRoute><Dataset /></PrivateRoute>} />
+        </Routes>
+      </div>
+    </div>
+  );
+};
 
 const App = () => {
   return (
-    <>
+    <AuthProvider>
       <Toaster position="top-right" />
       <Router>
-        <div className="app-container">
-          <Navbar />
-          <div className="content-container">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/personal" element={<Personal />} />
-              <Route path="/database" element={<Dataset />} />
-            </Routes>
-          </div>
-        </div>
+        <AppContent />
       </Router>
-      </>
+    </AuthProvider>
   );
 };
 
