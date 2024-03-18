@@ -9,13 +9,13 @@ function LoginForm() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const navigate = useNavigate();
-    const { isLoggedIn, login } = useAuth(); // Destructure the login function from the AuthContext
+    const { authToken, login } = useAuth(); 
 
     useEffect(() => {
-        if (isLoggedIn) {
+        if (authToken) {
             navigate('/personal');
         }
-    }, [isLoggedIn, navigate]);
+    }, [authToken, navigate]);
 
     const handleSubmit = async (event) => {
         event.preventDefault();
@@ -23,7 +23,7 @@ function LoginForm() {
             username,
             password,
         };
-
+    
         try {
             const response = await fetch('http://localhost:8000/api/login/', {
                 method: 'POST',
@@ -32,13 +32,15 @@ function LoginForm() {
                 },
                 body: JSON.stringify(loginData),
             });
-
+    
             const data = await response.json();
+            console.log("data:: ", data)
             if (response.ok) {
                 console.log('Login successful:', data);
-                login();
+                localStorage.setItem('token', data.token); 
+                login(data.token);
                 toast.success('Successfully Login!');
-                navigate('/');
+                navigate('/'); 
             } else {
                 throw new Error(data.error || 'Login failed');
             }
@@ -48,7 +50,7 @@ function LoginForm() {
         }
     };
 
-    if (isLoggedIn) {
+    if (authToken) {
         return <Navigate to="/personal" />;
     }
 

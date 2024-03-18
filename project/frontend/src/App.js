@@ -11,11 +11,11 @@ import { AuthProvider, useAuth } from './context/AuthContext/AuthContext';
 import PrivateRoute from './views/PrivateRoute/PrivateRoute';
 
 const AppContent = () => {
-  const { isLoggedIn } = useAuth();
+  const { authToken } = useAuth();
 
   return (
     <div className="app-container">
-      {isLoggedIn && <Navbar />}
+      {authToken && <Navbar />}
       <div className="content-container">
         <Routes>
           <Route path="/login" element={<Login />} />

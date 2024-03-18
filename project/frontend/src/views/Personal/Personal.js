@@ -1,8 +1,9 @@
 import PasswordChange from './PasswordChange/PasswordChange';
-import './Personal.css';
 import PersonalInfoDetails from './PersonalInfoDetails/PersonalInfoDetails';
+import './Personal.css';
 
 const Personal = () => {
+
     return (
         <div className='personal-wrapper'>
             <p className='personal-header'>Personal Info</p>

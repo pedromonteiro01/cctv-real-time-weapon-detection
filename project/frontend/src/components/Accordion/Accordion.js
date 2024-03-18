@@ -1,10 +1,9 @@
 import React from 'react';
 import Accordion from 'react-bootstrap/Accordion';
-import './Accordion.css'; // Importing CSS for styling
+import './Accordion.css';
 
 const CustomAccordion = ({ children }) => {
     return (
-        // Apply the custom class to the Accordion component
         <Accordion className="custom-accordion">
             {children}
         </Accordion>

@@ -9,8 +9,5 @@ done
 # Migrate the database
 python manage.py migrate
 
-# Create a user (modify as needed)
-echo "from django.contrib.auth.models import User; User.objects.create_superuser('admin', 'admin@example.com', 'pass') if not User.objects.filter(username='admin').exists() else print('Admin user already exists.')" | python manage.py shell
-
 # Start the Django app
 exec "$@"
