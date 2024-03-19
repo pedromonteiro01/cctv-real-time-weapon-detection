@@ -4,10 +4,10 @@ services:
   mysql:
     image: mysql:latest
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword  # Root password
-      MYSQL_DATABASE: mydatabase  # Database name
-      MYSQL_USER: user  # User
-      MYSQL_PASSWORD: userpassword  # User password
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: mydatabase
+      MYSQL_USER: user
+      MYSQL_PASSWORD: userpassword
     ports:
       - "3306:3306"
 
@@ -33,18 +33,17 @@ services:
       - backend
 
   backend:
+    environment:
+        - DJANGO_SETTINGS_MODULE=backend.settings
     build:
       context: .
       dockerfile: backend/Dockerfile
     command: >
-      sh -c "
-        python manage.py wait_for_db &&
-        python manage.py makemigrations base &&
-        python manage.py migrate base &&
-        python manage.py migrate --fake &&
-        python manage.py populate_db && 
-        uvicorn backend.asgi:application --host 0.0.0.0 --reload
-      "
+      sh -c "python manage.py wait_for_db &&
+            python manage.py makemigrations &&
+            python manage.py migrate &&
+            python manage.py populate_db && 
+            uvicorn backend.asgi:application --host 0.0.0.0 --reload"
     volumes:
       - ./backend:/app
     depends_on:
@@ -52,6 +51,17 @@ services:
     ports:
       - "8000:8000"
 
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+    ports:
+      - "5672:5672" # RabbitMQ server
+      - "15672:15672" # Management interface
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
 
 volumes:
   mysql-data:
+  rabbitmq-data:

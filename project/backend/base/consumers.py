@@ -6,6 +6,12 @@ import torch
 import base64
 import cv2
 from uvicorn.protocols.utils import ClientDisconnected
+from channels.db import database_sync_to_async
+from django.contrib.auth import get_user_model
+import pika
+from asgiref.sync import sync_to_async
+import threading
+from channels.db import database_sync_to_async
 
 model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best.pt')
 
@@ -122,51 +128,78 @@ class CameraInfoConsumer(AsyncWebsocketConsumer):
             
             await asyncio.sleep(1)
 
-CAMERA_SOURCES = [
-    {"id": "1", "video_path": "base/sample.mp4", "location": "Entrance"},
-    {"id": "2", "video_path": "base/sample3.mp4", "location": "Lobby"},
-    {"id": "3", "video_path": "base/sample.mp4", "location": "Parking Lot"},
-    {"id": "4", "video_path": "base/sample3.mp4", "location": "Hallway 1"},
-    {"id": "5", "video_path": "base/sample.mp4", "location": "Hallway 2"},
-    {"id": "6", "video_path": "base/sample3.mp4", "location": "Office 1"},
-]
-
 class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.stream_threads = []
+
     async def connect(self):
-        await self.accept()
-        self.stream_tasks = []
-        for camera in CAMERA_SOURCES:
-            camera_id = camera["id"]
-            video_path = camera["video_path"]
-            task = asyncio.create_task(self.stream_video(camera))
-            self.stream_tasks.append(task)
+        authToken = self.scope['url_route']['kwargs']['token']
+        self.user = await self.get_user(authToken)
+        
+        if not self.user:
+            await self.close(code=4403)
+        else:
+            await self.accept()
+            self.cameras = await self.get_user_cameras()
+            for camera in self.cameras:
+                loop = asyncio.get_running_loop()  # Get the current event loop
+                thread = threading.Thread(target=self.listen_to_rabbitmq, args=(camera, loop))
+                thread.start()
+                self.stream_threads.append(thread)
+    
+    def listen_to_rabbitmq(self, camera, loop):
+        # Set up the RabbitMQ connection
+        rabbitmq_server = 'rabbitmq'
+        rabbitmq_username = 'user'
+        rabbitmq_password = 'password'
+        credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
+        connection_parameters = pika.ConnectionParameters(
+            host=rabbitmq_server,
+            credentials=credentials
+        )
+        connection = pika.BlockingConnection(connection_parameters)
+        channel = connection.channel()
 
+        queue_name = f"camera_stream_{camera['id']}"
+        channel.queue_declare(queue=queue_name, durable=True)
+
+        def callback(ch, method, properties, body):
+            frame_data = body.decode('utf-8')
+            # Use the passed event loop
+            asyncio.run_coroutine_threadsafe(self.send_frame_to_websocket(frame_data, camera), loop)
+
+        channel.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=True)
+
+        channel.start_consuming()
+
+    async def send_frame_to_websocket(self, frame_data, camera):
+        try:
+            await self.send(text_data=json.dumps({
+                'camera_id': camera["id"],
+                'location': camera["location"],
+                'day': datetime.now().strftime('%d/%m/%Y'),
+                'hour': datetime.now().strftime('%H:%M:%S'),
+                'frame': frame_data,
+            }))
+        except Exception as e:
+            pass
+    
     async def disconnect(self, close_code):
-        # Cancel all streaming tasks on disconnect
-        for task in self.stream_tasks:
-            task.cancel()
+        for task in self.stream_threads:
+            pass
 
-    async def stream_video(self, camera):
-        cap = cv2.VideoCapture(camera["video_path"])
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
+    @database_sync_to_async
+    def get_user(self, token_key):
+        from rest_framework.authtoken.models import Token
+        try:
+            return Token.objects.get(key=token_key).user
+        except Token.DoesNotExist:
+            return None
 
-            _, buffer = cv2.imencode('.jpg', frame)
-            frame_base64 = base64.b64encode(buffer).decode('utf-8')
-
-            try:
-                await self.send(text_data=json.dumps({
-                    'camera_id': camera["id"],
-                    'location': camera["location"],
-                    'day': datetime.now().strftime('%d/%m/%Y'),
-                    'hour': datetime.now().strftime('%H:%M:%S'),
-                    'frame': frame_base64,
-                }))
-                await asyncio.sleep(0)  # Adjust as needed
-            except Exception as e:
-                print(f"Error sending frame for camera {camera['id']}: {e}")
-                break
-            
-        cap.release()
+    @sync_to_async
+    def get_user_cameras(self):
+        # Assuming `self.user` is set to the authenticated user in `connect`
+        from base.models import Camera
+        cameras = Camera.objects.filter(user=self.user).values('id', 'location', 'video_path')
+        return list(cameras)

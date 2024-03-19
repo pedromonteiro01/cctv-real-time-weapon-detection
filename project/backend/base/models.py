@@ -48,6 +48,7 @@ class Camera(models.Model):
     location = models.CharField(max_length=255)
     installation_date = models.DateField()
     status = models.CharField(max_length=100)
+    video_path = models.CharField(max_length=255, blank=True, null=True)  # Add this line
 
     def __str__(self):
         return f"{self.location} - {self.status}"
