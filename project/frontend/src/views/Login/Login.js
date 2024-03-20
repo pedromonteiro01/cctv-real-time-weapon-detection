@@ -40,7 +40,7 @@ function LoginForm() {
                 localStorage.setItem('token', data.token); 
                 login(data.token);
                 toast.success('Successfully Login!');
-                navigate('/'); 
+                navigate('/database'); 
             } else {
                 throw new Error(data.error || 'Login failed');
             }

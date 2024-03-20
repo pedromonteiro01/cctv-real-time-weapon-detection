@@ -7,54 +7,65 @@ import { PiFilmSlateLight } from "react-icons/pi";
 import { BsSkipBackward } from "react-icons/bs";
 import toast from 'react-hot-toast';
 import TopFrameOverlay from '../../../components/TopFrameOverlay/TopFrameOverlay';
+import { useParams } from 'react-router-dom';
 
 const DetectionFrame = ({ onWeaponDetected }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [cameraInfo, setCameraInfo] = useState({ id: '', location: '', day: '', hour: '' });
     const canvasRef = useRef(null);
+    const { cameraId } = useParams();
 
     useEffect(() => {
-        const ws = new WebSocket('ws://localhost:8000/ws/video/');
+        const ws = new WebSocket(`ws://localhost:8000/ws/video/${cameraId}/`);
         ws.onmessage = (e) => {
             const data = JSON.parse(e.data);
-            if (data.type === 'warning') {
-                toast(data.message, {
-                    icon: '⚠️',
-                    style: {
-                        border: '1px solid #f97316',
-                        padding: '16px',
-                        color: '#f97316',
-                    },
-                });
-
-                onWeaponDetected({
-                    camera: `Camera ${data.id}`,
-                    weaponType: "Weapon",
-                    day: data.day,
-                    hour: data.hour,
-                    location: data.location,
+            console.log(data)
+        
+            // Update camera info based on every message, not just time_update
+            setCameraInfo({
+                id: data.camera_id || cameraInfo.id,
+                location: data.location || cameraInfo.location,
+                day: data.day || cameraInfo.day,
+                hour: data.hour || cameraInfo.hour
+            });
+        
+            // Handle detections
+            if (data.detections && data.detections.length > 0) {
+                data.detections.forEach((detection) => {
+                    const message = `Detection: ${detection.label} with ${Math.round(detection.confidence * 100)}% confidence`;
+                    toast(message, {
+                        icon: '🚨',
+                        style: {
+                            border: '1px solid #ff0000',
+                            padding: '16px',
+                            color: '#ff0000',
+                        },
+                    });
+        
+                    // Pass detection info to parent component for record addition
+                    onWeaponDetected({
+                        camera: `Camera ${data.camera_id}`,
+                        weaponType: detection.label,
+                        date: data.day,
+                        time: data.hour,
+                        location: data.location,
+                    });
                 });
             }
-
-            if (data.type === 'time_update') {
-                setCameraInfo({
-                    id: data.id,
-                    location: data.location,
-                    day: data.day,
-                    hour: data.hour
-                });
+        
+            // Handle frame rendering
+            if (data.frame) {
+                const context = canvasRef.current.getContext('2d');
+                const image = new Image();
+                image.onload = () => {
+                    context.drawImage(image, 0, 0, canvasRef.current.width, canvasRef.current.height);
+                };
+                image.src = `data:image/jpeg;base64,${data.frame}`;
             }
-
-            const context = canvasRef.current.getContext('2d');
-            const image = new Image();
-            image.onload = () => {
-                context.drawImage(image, 0, 0, canvasRef.current.width, canvasRef.current.height);
-            };
-            image.src = `data:image/jpeg;base64,${data.frame}`;
         };
 
         return () => ws.close();
-    }, []);
+    }, [cameraId, onWeaponDetected, cameraInfo]);
 
 
     const toggleExpandVideo = () => {

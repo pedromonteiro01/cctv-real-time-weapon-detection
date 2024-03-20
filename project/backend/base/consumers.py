@@ -12,90 +12,105 @@ import pika
 from asgiref.sync import sync_to_async
 import threading
 from channels.db import database_sync_to_async
+import numpy as np
 
 model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best.pt')
 
 class VideoStreamConsumer(AsyncWebsocketConsumer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.connection_open = False
+
     async def connect(self):
-        self.cap = cv2.VideoCapture('base/sample3.mp4')
-        await self.accept()
-        self.time_task = asyncio.create_task(self.send_time_updates())
-        self.video_task = asyncio.create_task(self.stream_video())
+        self.camera_id = self.scope['url_route']['kwargs']['camera_id']
+        self.camera_details = await self.get_camera_details(self.camera_id)
 
-    async def disconnect(self, close_code):
-        # Cleanup on disconnect
-        self.time_task.cancel()
-        self.video_task.cancel()
-        self.cap.release()
+        if self.camera_details:
+            await self.accept()
+            self.connection_open = True
+            loop = asyncio.get_running_loop()
+            thread = threading.Thread(target=self.listen_to_rabbitmq, args=(self.camera_id, loop))
+            thread.start()
+        else:
+            await self.close(code=4404)  # No such camera
 
-    async def send_time_updates(self):
-        camera_info = {
-            'id': '123',
-            'location': 'Main Entrance',
-            'day': datetime.now().strftime('%d/%m/%Y'),
-            'hour': datetime.now().strftime('%H:%M:%S')
-        }
-        while True:
-            now = datetime.now()
-            camera_info['day'] = now.strftime('%d/%m/%Y')
-            camera_info['hour'] = now.strftime('%H:%M:%S')
-            try:
-                await self.send(text_data=json.dumps({
-                    'type': 'time_update',
-                    **camera_info,
-                }))
-                await asyncio.sleep(1)  # Adjust as needed for your timing requirements
-            except Exception as e:
-                print(f"Error sending time update: {e}")
-                break
+    def listen_to_rabbitmq(self, camera_id, loop):
+        rabbitmq_server = 'rabbitmq'
+        rabbitmq_username = 'user'
+        rabbitmq_password = 'password'
+        credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
+        connection_parameters = pika.ConnectionParameters(host=rabbitmq_server, credentials=credentials)
+        
+        connection = pika.BlockingConnection(connection_parameters)
+        channel = connection.channel()
 
-    async def stream_video(self):
-        camera_info = {
-            'id': '123',
-            'location': 'Main Entrance',
-            'day': datetime.now().strftime('%d/%m/%Y'),
-            'hour': datetime.now().strftime('%H:%M:%S')
-        }
+        queue_name = f"camera_stream_{camera_id}"
+        channel.queue_declare(queue=queue_name, durable=True)
 
-        global model
-        cap = cv2.VideoCapture('base/sample3.mp4')
-        last_alert_time = datetime.min
-        alert_interval = timedelta(seconds=20)
-
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-
-            results = model(frame)
-            current_time = datetime.now()
-
-            for det in results.xyxy[0]:
-                if det[-1] == 0 and current_time - last_alert_time >= alert_interval:
-                    await self.send(text_data=json.dumps({
-                        'type': 'warning',
-                        'message': 'Weapon detected!',
-                        **camera_info
-                    }))                    
-                    last_alert_time = current_time
-                    break
-
-            annotated_frame = results.render()[0]
+        def callback(ch, method, properties, body):
+            message = json.loads(body)
+            frame_data = base64.b64decode(message['frame'])
+            frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
+            
+            # Process the frame with YOLO
+            detections, annotated_frame = self.process_frame_with_yolo(frame)
+            
             _, buffer = cv2.imencode('.jpg', annotated_frame)
             frame_base64 = base64.b64encode(buffer).decode('utf-8')
 
-            try:
-                await self.send(text_data=json.dumps({
-                    'frame': frame_base64,
-                    **camera_info
-                }))
-                # Yield control back to the event loop to allow other tasks to run
-                await asyncio.sleep(0)
-            except ClientDisconnected:
-                print("Client disconnected, stopping video stream.")
-                break
-            
-        cap.release()
+            # Send the detections and the annotated frame to the WebSocket
+            asyncio.run_coroutine_threadsafe(
+                self.send_frame_to_websocket(detections, frame_base64, camera_id),
+                loop
+            )
+
+        channel.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=True)
+        channel.start_consuming()
+
+    async def send_frame_to_websocket(self, detections, frame_base64, camera_id):
+        # Fetch camera details each time to ensure the latest data is used
+        camera_details = await self.get_camera_details(camera_id)
+        if camera_details:
+            if self.connection_open:
+                try:
+                    await self.send(text_data=json.dumps({
+                        'camera_id': camera_details['id'],
+                        'location': camera_details['location'],
+                        'day': datetime.now().strftime('%d/%m/%Y'),
+                        'hour': datetime.now().strftime('%H:%M:%S'),
+                        'detections': detections,
+                        'frame': frame_base64,
+                    }))
+                except Exception as e:
+                    print(f"Error sending frame to websocket: {e}")
+
+    def process_frame_with_yolo(self, frame):
+        results = model(frame)
+        detections = []
+        for *xyxy, conf, cls in results.xyxy[0]:
+            label = model.names[int(cls)]
+            bbox = [float(coord) for coord in xyxy]
+            confidence = float(conf)
+            detections.append({
+                "label": label,
+                "confidence": confidence,
+                "bbox": bbox
+            })
+        
+        annotated_frame = results.render()[0]
+        return detections, annotated_frame
+
+    @database_sync_to_async
+    def get_camera_details(self, camera_id):
+        from .models import Camera
+        try:
+            camera = Camera.objects.values('id', 'location').get(id=camera_id)
+            return {'id': camera['id'], 'location': camera['location']}
+        except Camera.DoesNotExist:
+            return None
+
+    async def disconnect(self, close_code):
+        self.connection_open = False
 
 
 class CameraInfoConsumer(AsyncWebsocketConsumer):
@@ -143,13 +158,12 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
             await self.accept()
             self.cameras = await self.get_user_cameras()
             for camera in self.cameras:
-                loop = asyncio.get_running_loop()  # Get the current event loop
+                loop = asyncio.get_running_loop()
                 thread = threading.Thread(target=self.listen_to_rabbitmq, args=(camera, loop))
                 thread.start()
                 self.stream_threads.append(thread)
     
     def listen_to_rabbitmq(self, camera, loop):
-        # Set up the RabbitMQ connection
         rabbitmq_server = 'rabbitmq'
         rabbitmq_username = 'user'
         rabbitmq_password = 'password'
@@ -166,7 +180,6 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
 
         def callback(ch, method, properties, body):
             frame_data = body.decode('utf-8')
-            # Use the passed event loop
             asyncio.run_coroutine_threadsafe(self.send_frame_to_websocket(frame_data, camera), loop)
 
         channel.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=True)
@@ -199,7 +212,6 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
 
     @sync_to_async
     def get_user_cameras(self):
-        # Assuming `self.user` is set to the authenticated user in `connect`
         from base.models import Camera
         cameras = Camera.objects.filter(user=self.user).values('id', 'location', 'video_path')
         return list(cameras)

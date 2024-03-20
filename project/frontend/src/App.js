@@ -19,7 +19,7 @@ const AppContent = () => {
       <div className="content-container">
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+          <Route path="/camera/:cameraId" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/personal" element={<PrivateRoute><Personal /></PrivateRoute>} />
           <Route path="/database" element={<PrivateRoute><Dataset /></PrivateRoute>} />
         </Routes>

@@ -12,7 +12,7 @@ def encode_frame(frame):
 def send_frame_to_queue(channel, queue_name, frame_base64, camera_id, user_id):
     message_payload = {
         'camera_id': camera_id,
-        'user_id': user_id,  # Now sending the user_id as well
+        'user_id': user_id,
         'frame': frame_base64,
         'timestamp': int(time.time() * 1000),
     }
@@ -34,8 +34,8 @@ def process_video(camera_id, video_path, connection_parameters, user_id):
         if not ret:
             break
         frame_base64 = encode_frame(frame)
-        send_frame_to_queue(channel, queue_name, frame_base64, camera_id, user_id)  # Now sending user_id as well
-        time.sleep(0.1)  # Simulate frame rate
+        send_frame_to_queue(channel, queue_name, frame_base64, camera_id, user_id) 
+        time.sleep(0.1) 
     cap.release()
     connection.close()
 
@@ -49,9 +49,9 @@ def main():
         '3': 2,  # Camera ID 3 belongs to User ID 2
     }
     camera_sources = {
-        '1': ['guns.mp4'],  # Camera ID 1 video
-        '2': ['guns.mp4'],  # Camera ID 2 video
-        '3': ['guns.mp4'],  # Camera ID 3 video
+        '1': ['./media/guns.mp4'],  # Camera ID 1 video
+        '2': ['./media/guns.mp4'],  # Camera ID 2 video
+        '3': ['./media/guns.mp4'],  # Camera ID 3 video
     }
 
     credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
@@ -62,13 +62,12 @@ def main():
 
     threads = []
     for camera_id, video_paths in camera_sources.items():
-        user_id = camera_user_map[camera_id]  # Get the user_id for this camera_id
+        user_id = camera_user_map[camera_id] 
         for video_path in video_paths:
             thread = threading.Thread(target=process_video, args=(camera_id, video_path, connection_parameters, user_id))
             thread.start()
             threads.append(thread)
 
-    # Wait for all threads to complete
     for thread in threads:
         thread.join()
 
