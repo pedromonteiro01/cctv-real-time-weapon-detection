@@ -32,7 +32,7 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
             thread = threading.Thread(target=self.listen_to_rabbitmq, args=(self.camera_id, loop))
             thread.start()
         else:
-            await self.close(code=4404)  # No such camera
+            await self.close(code=4404)
 
     def listen_to_rabbitmq(self, camera_id, loop):
         rabbitmq_server = 'rabbitmq'
@@ -52,13 +52,11 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
             frame_data = base64.b64decode(message['frame'])
             frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
             
-            # Process the frame with YOLO
             detections, annotated_frame = self.process_frame_with_yolo(frame)
             
             _, buffer = cv2.imencode('.jpg', annotated_frame)
             frame_base64 = base64.b64encode(buffer).decode('utf-8')
 
-            # Send the detections and the annotated frame to the WebSocket
             asyncio.run_coroutine_threadsafe(
                 self.send_frame_to_websocket(detections, frame_base64, camera_id),
                 loop
@@ -68,7 +66,6 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
         channel.start_consuming()
 
     async def send_frame_to_websocket(self, detections, frame_base64, camera_id):
-        # Fetch camera details each time to ensure the latest data is used
         camera_details = await self.get_camera_details(camera_id)
         if camera_details:
             if self.connection_open:

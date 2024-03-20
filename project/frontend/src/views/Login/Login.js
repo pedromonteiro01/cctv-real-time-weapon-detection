@@ -34,9 +34,7 @@ function LoginForm() {
             });
     
             const data = await response.json();
-            console.log("data:: ", data)
             if (response.ok) {
-                console.log('Login successful:', data);
                 localStorage.setItem('token', data.token); 
                 login(data.token);
                 toast.success('Successfully Login!');

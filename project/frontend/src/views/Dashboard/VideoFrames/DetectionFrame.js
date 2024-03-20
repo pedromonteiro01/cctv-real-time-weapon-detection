@@ -21,7 +21,6 @@ const DetectionFrame = ({ onWeaponDetected }) => {
             const data = JSON.parse(e.data);
             console.log(data)
         
-            // Update camera info based on every message, not just time_update
             setCameraInfo({
                 id: data.camera_id || cameraInfo.id,
                 location: data.location || cameraInfo.location,
@@ -29,7 +28,6 @@ const DetectionFrame = ({ onWeaponDetected }) => {
                 hour: data.hour || cameraInfo.hour
             });
         
-            // Handle detections
             if (data.detections && data.detections.length > 0) {
                 data.detections.forEach((detection) => {
                     const message = `Detection: ${detection.label} with ${Math.round(detection.confidence * 100)}% confidence`;
@@ -42,7 +40,6 @@ const DetectionFrame = ({ onWeaponDetected }) => {
                         },
                     });
         
-                    // Pass detection info to parent component for record addition
                     onWeaponDetected({
                         camera: `Camera ${data.camera_id}`,
                         weaponType: detection.label,
@@ -53,7 +50,6 @@ const DetectionFrame = ({ onWeaponDetected }) => {
                 });
             }
         
-            // Handle frame rendering
             if (data.frame) {
                 const context = canvasRef.current.getContext('2d');
                 const image = new Image();

@@ -4,13 +4,23 @@ import './Database.css';
 import { SyncLoader } from 'react-spinners';
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
 import { useAuth } from '../../context/AuthContext/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
-const CameraStream = ({ camera, frameSrc }) => (
-    <div className="database-image">
-        <TopFrameOverlay {...camera} />
-        <img src={frameSrc} alt={`Camera ${camera.id}`} style={{ width: '100%', height: 'auto' }} />
-    </div>
-);
+const CameraStream = ({ camera, frameSrc }) => {
+    const navigate = useNavigate();
+    console.log("camera: ", camera)
+
+    const handleCameraClick = () => {
+        navigate(`/camera/${camera.id}`);
+    };
+
+    return (
+        <div className="database-image" onClick={handleCameraClick} style={{ cursor: 'pointer' }}>
+            <TopFrameOverlay {...camera} />
+            <img src={frameSrc} alt={`Camera ${camera.id}`} style={{ width: '100%', height: 'auto' }} />
+        </div>
+    );
+};
 
 const Database = () => {
     const [cameras, setCameras] = useState({});
@@ -25,7 +35,6 @@ const Database = () => {
         ws.current = new WebSocket(`ws://localhost:8000/ws/multi_camera/${authToken}/`);
 
         const formatTimestamp = (timestamp) => {
-            // Check if timestamp is a number
             if (isNaN(timestamp) || timestamp === undefined) {
                 console.error("Invalid timestamp:", timestamp);
                 return { formattedDate: 'Invalid Date', formattedTime: 'Invalid Time' };
@@ -47,21 +56,20 @@ const Database = () => {
 
         ws.current.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            // Assuming data.frame is a JSON string representing an object with a 'frame' key.
             let frameDetails;
             try {
-                frameDetails = JSON.parse(data.frame); // This will throw an error if data.frame is not a valid JSON string
+                frameDetails = JSON.parse(data.frame); 
             } catch (error) {
                 console.error("Error parsing data.frame as JSON:", error);
-                return; // Exit the function if parsing fails
+                return; 
             }
             console.log("Received timestamp:", data.timestamp);
             const { formattedDate, formattedTime } = formatTimestamp(frameDetails.timestamp);
             if (frameDetails && frameDetails.frame) {
-                // Use frameDetails.frame which is expected to be a base64 string
                 setCameras(prev => ({
                     ...prev,
                     [data.camera_id]: {
+                        id: data.camera_id,
                         ...prev[data.camera_id],
                         location: data.location,
                         frameSrc: `data:image/jpeg;base64,${frameDetails.frame}`,

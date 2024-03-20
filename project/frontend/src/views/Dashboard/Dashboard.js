@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import DashboardItems from './DashBoardItems/DashBoardItems';
 import './Dashboard.css';
 import RecordTable from './Table/Table';
