@@ -19,7 +19,6 @@ const DetectionFrame = ({ onWeaponDetected }) => {
         const ws = new WebSocket(`ws://localhost:8000/ws/video/${cameraId}/`);
         ws.onmessage = (e) => {
             const data = JSON.parse(e.data);
-            console.log(data)
         
             setCameraInfo({
                 id: data.camera_id || cameraInfo.id,

@@ -8,7 +8,6 @@ import { useNavigate } from 'react-router-dom';
 
 const CameraStream = ({ camera, frameSrc }) => {
     const navigate = useNavigate();
-    console.log("camera: ", camera)
 
     const handleCameraClick = () => {
         navigate(`/camera/${camera.id}`);
@@ -63,7 +62,6 @@ const Database = () => {
                 console.error("Error parsing data.frame as JSON:", error);
                 return; 
             }
-            console.log("Received timestamp:", data.timestamp);
             const { formattedDate, formattedTime } = formatTimestamp(frameDetails.timestamp);
             if (frameDetails && frameDetails.frame) {
                 setCameras(prev => ({
