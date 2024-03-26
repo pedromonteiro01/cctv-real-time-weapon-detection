@@ -14,7 +14,15 @@ import threading
 from channels.db import database_sync_to_async
 import numpy as np
 
-model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best.pt')
+if torch.cuda.is_available():
+    print("CUDA (GPU support) is available and enabled!")
+    device = torch.device("cuda")
+else:
+    print("CUDA (GPU support) is not available, falling back to CPU.")
+    device = torch.device("cpu")
+
+model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best.pt').to(device)
+# model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best.pt')
 
 class VideoStreamConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
@@ -82,7 +90,14 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
                     print(f"Error sending frame to websocket: {e}")
 
     def process_frame_with_yolo(self, frame):
-        results = model(frame)
+        frame_tensor = torch.from_numpy(frame).to(device)
+        frame_tensor = frame_tensor.float() 
+        frame_tensor /= 255.0
+
+        if len(frame_tensor.shape) == 3:
+            frame_tensor = frame_tensor.unsqueeze(0)
+
+        results = model(frame_tensor)
         detections = []
         for *xyxy, conf, cls in results.xyxy[0]:
             label = model.names[int(cls)]

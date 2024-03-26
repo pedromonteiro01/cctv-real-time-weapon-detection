@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom'; // Import Navigate
 import Navbar from './components/Navbar/Navbar';
 import Dashboard from './views/Dashboard/Dashboard';
 import './App.css';
@@ -22,6 +22,7 @@ const AppContent = () => {
           <Route path="/camera/:cameraId" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/personal" element={<PrivateRoute><Personal /></PrivateRoute>} />
           <Route path="/database" element={<PrivateRoute><Dataset /></PrivateRoute>} />
+          <Route path="*" element={<Navigate to="/login" replace />} /> {/* Catch-all route */}
         </Routes>
       </div>
     </div>
