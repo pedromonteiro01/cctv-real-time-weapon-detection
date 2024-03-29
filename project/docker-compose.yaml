@@ -40,8 +40,7 @@ services:
       dockerfile: backend/Dockerfile
     command: >
       sh -c "python manage.py wait_for_db &&
-            python manage.py makemigrations &&
-            python manage.py migrate &&
+            python manage.py custom_migrate &&
             python manage.py populate_db && 
             uvicorn backend.asgi:application --host 0.0.0.0 --reload"
     volumes:

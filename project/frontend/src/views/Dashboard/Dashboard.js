@@ -12,18 +12,50 @@ const Dashboard = () => {
 
     const handleWeaponDetection = (detectedInfo) => {
         setIsAlert(true);
+    
+        const currentDate = new Date();
+        const date = currentDate.toISOString().split('T')[0]; // Formats the current date as YYYY-MM-DD
+        const time = currentDate.toTimeString().split(' ')[0]; // Gets the current time in HH:MM:SS format
+    
         const newRecord = {
             no: records.length + 1,
             camera: detectedInfo.camera,
-            weaponType: detectedInfo.weaponType,
+            weapon_type: detectedInfo.weaponType,
             date: detectedInfo.date,
             time: detectedInfo.time,
             site: detectedInfo.location,
+            confidence: Math.round(detectedInfo.confidence * 100)
         };
+    
         setRecords([newRecord, ...records]);
         setLastDetectedCamera(detectedInfo.camera);
+
+        console.log(detectedInfo)
+        fetch('http://localhost:8000/api/detections/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                camera: parseInt(detectedInfo.camera, 10),
+                frame: detectedInfo.frame,
+                weapon_type: detectedInfo.weaponType,
+                site: detectedInfo.location,
+                confidence: Math.round(detectedInfo.confidence * 100),
+            }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Detection saved:', data);
+        })
+        .catch((error) => {
+            console.error('Error saving detection:', error);
+        });
+    
         setTimeout(() => setIsAlert(false), 5000);
     };
+    
+    
 
     return (
         <div className="dashboard-wrapper">
@@ -34,7 +66,7 @@ const Dashboard = () => {
             <div className='recorded-warning-wrapper'>
                 <div className='recorded-data'>
                     <p>Recorded Data</p>
-                    <RecordTable records={records} />
+                    <RecordTable records={records} setRecords={setRecords} />
                 </div>
                 <div className='unsolved-issue'>
                     <p>Unsolved Issue</p>

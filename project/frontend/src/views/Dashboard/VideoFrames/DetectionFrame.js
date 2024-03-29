@@ -19,6 +19,7 @@ const DetectionFrame = ({ onWeaponDetected }) => {
         const ws = new WebSocket(`ws://localhost:8000/ws/video/${cameraId}/`);
         ws.onmessage = (e) => {
             const data = JSON.parse(e.data);
+            console.log(data)
         
             setCameraInfo({
                 id: data.camera_id || cameraInfo.id,
@@ -40,11 +41,13 @@ const DetectionFrame = ({ onWeaponDetected }) => {
                     });
         
                     onWeaponDetected({
-                        camera: `Camera ${data.camera_id}`,
+                        camera: data.camera_id,
                         weaponType: detection.label,
                         date: data.day,
                         time: data.hour,
                         location: data.location,
+                        frame: data.frame,
+                        confidence: detection.confidence
                     });
                 });
             }

@@ -56,8 +56,13 @@ class Camera(models.Model):
 # Detection Model
 class Detection(models.Model):
     camera = models.ForeignKey(Camera, on_delete=models.CASCADE)
-    timestamp = models.DateTimeField(auto_now_add=True)
-    frame = models.ImageField(upload_to='detections/')
-
+    date = models.DateField(auto_now_add=True)
+    time = models.TimeField(auto_now_add=True) 
+    frame = models.TextField() 
+    site = models.CharField(max_length=255, default='Unknown')    
+    weapon_type = models.CharField(max_length=255, default='Unknown')    
+    confidence = models.FloatField(null=True, blank=True)
+    
     def __str__(self):
-        return f"Detection at {self.timestamp} by Camera {self.camera.id}"
+        return f"Detection at {self.timestamp} by Camera {self.camera.id} - {self.weapon_type} with confidence {self.confidence}%"
+

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './RecordTable.css';
 
 const TableHeader = () => {
@@ -11,6 +11,7 @@ const TableHeader = () => {
         <th>Date</th>
         <th>Time</th>
         <th>Site</th>
+        <th>Confidence</th>
       </tr>
     </thead>
   );
@@ -21,18 +22,36 @@ const TableRow = ({ record }) => {
     <tr>
       <td>{record.no}</td>
       <td>{record.camera}</td>
-      <td>{record.weaponType}</td>
+      <td>{record.weapon_type}</td>
       <td>{record.date}</td>
       <td>{record.time}</td>
       <td>{record.site}</td>
+      <td>{record.confidence}%</td>
     </tr>
   );
 };
 
-const RecordTable = ({ records }) => {
+const RecordTable = ({ records, setRecords }) => {
   const recordsPerPage = 3;
   const [currentPage, setCurrentPage] = useState(1);
   const maxPage = Math.ceil(records.length / recordsPerPage);
+
+  useEffect(() => {
+    fetch('http://localhost:8000/api/detections/')
+        .then(response => response.json())
+        .then(data => {
+            // Transform data as needed and setRecords
+            const transformedRecords = data.map((item, index) => ({
+                ...item,
+                no: index + 1, 
+            }));
+            setRecords(transformedRecords);
+            console.log(transformedRecords)
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+        });
+}, []);
 
   const indexOfLastRecord = currentPage * recordsPerPage;
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;

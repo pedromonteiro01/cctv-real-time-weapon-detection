@@ -5,5 +5,6 @@ from django.conf import settings
 
 urlpatterns = [
     path('login/', views.login_view, name='login'),
+    path('detections/', views.detection_list_create, name='detection-list-create'),
     path('user/', views.CurrentUserView.as_view(), name='current-user'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

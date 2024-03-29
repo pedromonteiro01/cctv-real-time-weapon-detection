@@ -9,6 +9,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from .serializers import CustomUserSerializer
 from rest_framework.authtoken.models import Token
+from .models import Detection
+from .serializers import DetectionSerializer
+from django.core.serializers import serialize
 
 @api_view(['POST'])
 def login_view(request):
@@ -24,6 +27,20 @@ def login_view(request):
         }, status=status.HTTP_200_OK)
     else:
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+
+@api_view(['GET', 'POST'])
+def detection_list_create(request):
+    if request.method == 'GET':
+        detections = Detection.objects.all()
+        serializer = DetectionSerializer(detections, many=True)
+        return Response(serializer.data)
+
+    elif request.method == 'POST':
+        serializer = DetectionSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CurrentUserView(APIView):
     permission_classes = [IsAuthenticated]
