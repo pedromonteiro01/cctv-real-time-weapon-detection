@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import './Navbar.css';
 import { Link } from 'react-router-dom';
 import dashboard from './dashboard.png';
-import database from './database.png';
+import cameras from './cameras2.png';
 import personal from './user.png';
+import history from './history.png';
 import upload from './upload.png';
 import logo from './logo.png';
 
@@ -16,7 +17,8 @@ const Navbar = () => {
 
     const navbarItems = [
         { name: 'dashboard', path: '/' },
-        { name: 'database', path: '/database' },
+        { name: 'cameras', path: '/cameras' },
+        { name: 'history', path: '/history' },
         { name: 'upload', path: '/upload' },
         { name: 'personal', path: '/personal' },
     ];
@@ -30,7 +32,7 @@ const Navbar = () => {
                 {navbarItems.map((item, index) => (
                     <li key={index} onClick={() => handleItemClick(item.name)}>
                         <Link to={item.path} className={`navbar-item ${selectedItem === item.name ? 'selected' : ''}`}>
-                            <img src={{ dashboard, database, upload, personal }[item.name]} alt={item.name} />
+                            <img src={{ dashboard, history, cameras, upload, personal }[item.name]} alt={item.name} />
                             {item.name.charAt(0).toUpperCase() + item.name.slice(1)}
                         </Link>
                     </li>

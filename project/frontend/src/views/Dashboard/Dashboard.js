@@ -4,19 +4,21 @@ import './Dashboard.css';
 import RecordTable from './Table/Table';
 import DetectionFrame from './VideoFrames/DetectionFrame';
 import warning from './warning.png';
+import { useAuth } from '../../context/AuthContext/AuthContext';
 
 const Dashboard = () => {
     const [isAlert, setIsAlert] = useState(false);
     const [records, setRecords] = useState([]);
     const [lastDetectedCamera, setLastDetectedCamera] = useState('');
+    const { authToken } = useAuth();
 
     const handleWeaponDetection = (detectedInfo) => {
         setIsAlert(true);
-    
+
         const currentDate = new Date();
         const date = currentDate.toISOString().split('T')[0]; // Formats the current date as YYYY-MM-DD
         const time = currentDate.toTimeString().split(' ')[0]; // Gets the current time in HH:MM:SS format
-    
+
         const newRecord = {
             no: records.length + 1,
             camera: detectedInfo.camera,
@@ -26,7 +28,7 @@ const Dashboard = () => {
             site: detectedInfo.location,
             confidence: Math.round(detectedInfo.confidence * 100)
         };
-    
+
         setRecords([newRecord, ...records]);
         setLastDetectedCamera(detectedInfo.camera);
 
@@ -35,6 +37,7 @@ const Dashboard = () => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Token ${authToken}`, // Assuming you have the user's token stored somewhere
             },
             body: JSON.stringify({
                 camera: parseInt(detectedInfo.camera, 10),
@@ -44,18 +47,18 @@ const Dashboard = () => {
                 confidence: Math.round(detectedInfo.confidence * 100),
             }),
         })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Detection saved:', data);
-        })
-        .catch((error) => {
-            console.error('Error saving detection:', error);
-        });
-    
+            .then(response => response.json())
+            .then(data => {
+                console.log('Detection saved:', data);
+            })
+            .catch((error) => {
+                console.error('Error saving detection:', error);
+            });
+
         setTimeout(() => setIsAlert(false), 5000);
     };
-    
-    
+
+
 
     return (
         <div className="dashboard-wrapper">

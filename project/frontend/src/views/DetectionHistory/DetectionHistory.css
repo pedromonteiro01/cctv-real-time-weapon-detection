@@ -1,0 +1,15 @@
+.table-container {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 90%;
+    padding: 2rem 1.8rem 2rem 1.8rem;
+    height: auto;
+    min-height: 100vh;
+    background-color: #1E1E1E;
+}
+
+.open-frame-button:hover {
+    cursor: pointer;
+    transform: scale(1.1);
+}

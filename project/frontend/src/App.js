@@ -9,6 +9,7 @@ import { Toaster } from 'react-hot-toast';
 import Login from './views/Login/Login';
 import { AuthProvider, useAuth } from './context/AuthContext/AuthContext';
 import PrivateRoute from './views/PrivateRoute/PrivateRoute';
+import DetectionHistory from './views/DetectionHistory/DetectionHistory';
 
 const AppContent = () => {
   const { authToken } = useAuth();
@@ -21,7 +22,8 @@ const AppContent = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/camera/:cameraId" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/personal" element={<PrivateRoute><Personal /></PrivateRoute>} />
-          <Route path="/database" element={<PrivateRoute><Dataset /></PrivateRoute>} />
+          <Route path="/cameras" element={<PrivateRoute><Dataset /></PrivateRoute>} />
+          <Route path="/history" element={<PrivateRoute><DetectionHistory /></PrivateRoute>} />
           <Route path="*" element={<Navigate to="/login" replace />} /> {/* Catch-all route */}
         </Routes>
       </div>

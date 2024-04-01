@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './RecordTable.css';
+import { useAuth } from '../../../context/AuthContext/AuthContext';
 
 const TableHeader = () => {
   return (
@@ -35,23 +36,39 @@ const RecordTable = ({ records, setRecords }) => {
   const recordsPerPage = 3;
   const [currentPage, setCurrentPage] = useState(1);
   const maxPage = Math.ceil(records.length / recordsPerPage);
+  const { authToken } = useAuth();
 
   useEffect(() => {
-    fetch('http://localhost:8000/api/detections/')
-        .then(response => response.json())
-        .then(data => {
-            // Transform data as needed and setRecords
-            const transformedRecords = data.map((item, index) => ({
-                ...item,
-                no: index + 1, 
-            }));
-            setRecords(transformedRecords);
-            console.log(transformedRecords)
-        })
-        .catch((error) => {
-            console.error('Error:', error);
-        });
-}, []);
+    // Assuming the token is stored in local storage under 'authToken'
+    const token = localStorage.getItem('authToken');
+    
+    fetch('http://localhost:8000/api/detections/', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            // Include the token in the Authorization header
+            'Authorization': `Token ${authToken}`
+        },
+    })
+    .then(response => {
+        if(response.ok) {
+            return response.json();
+        }
+        throw new Error('Network response was not ok.');
+    })
+    .then(data => {
+        // Transform data as needed and setRecords
+        const transformedRecords = data.map((item, index) => ({
+            ...item,
+            no: index + 1,
+        }));
+        setRecords(transformedRecords);
+        console.log(transformedRecords);
+    })
+    .catch((error) => {
+        console.error('Error:', error);
+    });
+}, [authToken]);
 
   const indexOfLastRecord = currentPage * recordsPerPage;
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
