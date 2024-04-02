@@ -16,9 +16,19 @@ const DetectionHistory = () => {
         fetch('http://localhost:8000/api/detections/', {
             headers: { 'Authorization': `Token ${authToken}` }
         })
-        .then(response => response.json())
+        .then(response => {
+            if (response.ok) {
+                return response.json();
+            } else {
+                throw new Error('Network response was not ok');
+            }
+        })
         .then(data => {
+            console.log("data: ", data);
             setDetections(data.map((detection, index) => ({ ...detection, no: index + 1 })));
+        })
+        .catch((error) => {
+            console.error('Error fetching detections:', error);
         });
     }, [authToken]);
 
@@ -47,7 +57,7 @@ const DetectionHistory = () => {
     );
 
     const TableRow = ({ record }) => (
-        <tr>
+        <tr className='detection-history-row'>
             <td>{record.no}</td>
             <td>{record.camera}</td>
             <td>{record.weapon_type}</td>
@@ -64,7 +74,7 @@ const DetectionHistory = () => {
     );
 
     return (
-        <div className="table-container">
+        <div className="table-container-wrapper">
             <div className="table-header">
                 <span>{detections.length} records</span>
             </div>

@@ -13,6 +13,7 @@ from .models import Detection, Camera
 from .serializers import DetectionSerializer
 from django.core.serializers import serialize
 from rest_framework.decorators import api_view, permission_classes
+from django.shortcuts import get_object_or_404
 
 @api_view(['POST'])
 def login_view(request):
@@ -31,28 +32,29 @@ def login_view(request):
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
-def detection_list_create(request):
+def detection_list_create(request, camera_id=None):
     if request.method == 'GET':
-        # Filter detections to only those belonging to the user's cameras
         user_cameras = request.user.cameras.all()
-        print("user cameras: ", user_cameras)
+        if camera_id is not None:
+            user_cameras = user_cameras.filter(id=camera_id)
         detections = Detection.objects.filter(camera__in=user_cameras).order_by('-date', '-time')
         serializer = DetectionSerializer(detections, many=True)
+        print(f"\n {serializer.data} \n")
         return Response(serializer.data)
 
     elif request.method == 'POST':
         camera_id = request.data.get('camera')
         try:
-            # Ensure the camera belongs to the currently authenticated user
             camera = request.user.cameras.get(id=camera_id)
         except Camera.DoesNotExist:
             return Response({"error": "Camera does not belong to the current user."}, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = DetectionSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(camera=camera)  # Save detection with the validated camera
+            serializer.save(camera=camera)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CurrentUserView(APIView):
     permission_classes = [IsAuthenticated]

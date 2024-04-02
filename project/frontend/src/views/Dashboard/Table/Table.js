@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './RecordTable.css';
 import { useAuth } from '../../../context/AuthContext/AuthContext';
+import { useParams } from 'react-router-dom'; 
+
 
 const TableHeader = () => {
   return (
@@ -37,18 +39,19 @@ const RecordTable = ({ records, setRecords }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const maxPage = Math.ceil(records.length / recordsPerPage);
   const { authToken } = useAuth();
+  const { cameraId } = useParams();
 
   useEffect(() => {
-    // Assuming the token is stored in local storage under 'authToken'
-    const token = localStorage.getItem('authToken');
-    
-    fetch('http://localhost:8000/api/detections/', {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            // Include the token in the Authorization header
-            'Authorization': `Token ${authToken}`
-        },
+    const url = cameraId 
+      ? `http://localhost:8000/api/detections/camera/${cameraId}/` 
+      : 'http://localhost:8000/api/detections/';
+      
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Token ${authToken}`
+      },
     })
     .then(response => {
         if(response.ok) {
@@ -57,13 +60,12 @@ const RecordTable = ({ records, setRecords }) => {
         throw new Error('Network response was not ok.');
     })
     .then(data => {
-        // Transform data as needed and setRecords
         const transformedRecords = data.map((item, index) => ({
             ...item,
             no: index + 1,
         }));
         setRecords(transformedRecords);
-        console.log(transformedRecords);
+        console.log("transformedRecords: ", transformedRecords);
     })
     .catch((error) => {
         console.error('Error:', error);
