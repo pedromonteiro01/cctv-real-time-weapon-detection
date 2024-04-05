@@ -65,7 +65,22 @@ class Detection(models.Model):
     
     def __str__(self):
         return f"Detection at {self.timestamp} by Camera {self.camera.id} - {self.weapon_type} with confidence {self.confidence}%"
-
 class UploadedVideo(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     video = models.FileField(upload_to='uploaded_videos/')
+    STATE_CHOICES = [
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('completed', 'Completed'),
+    ]
+    state = models.CharField(max_length=10, choices=STATE_CHOICES, default='pending')
+
+
+class UploadVideoDetections(models.Model):
+    uploaded_video = models.ForeignKey(UploadedVideo, on_delete=models.CASCADE, related_name='video_detections')
+    weapon_type = models.CharField(max_length=255)
+    confidence = models.FloatField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Video {self.uploaded_video.id} - Weapon Type: {self.weapon_type} with confidence {self.confidence}%"

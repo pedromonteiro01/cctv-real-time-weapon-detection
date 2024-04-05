@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import './VideoAnalysis.css';
+import { useAuth } from '../../context/AuthContext/AuthContext';
 
 function VideoAnalysis() {
     const { videoId } = useParams();
@@ -8,6 +9,25 @@ function VideoAnalysis() {
     const [detections, setDetections] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 5;
+    const { authToken } = useAuth();
+
+    const persistDetections = (detections) => {
+        fetch(`http://localhost:8000/api/uploaded_videos/${videoId}/detections/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization':  `Token ${authToken}`,
+            },
+            body: JSON.stringify({ detections })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Detections persisted successfully:', data);
+        })
+        .catch(error => {
+            console.error('Error persisting detections:', error);
+        });
+    };
 
     useEffect(() => {
         const ws = new WebSocket(`ws://localhost:8000/ws/upload/${videoId}/`);
@@ -23,6 +43,7 @@ function VideoAnalysis() {
             }
             if (data.detections) {
                 setDetections((prevDetections) => [...prevDetections, ...data.detections]);
+                persistDetections(data.detections);
             }
         };
 

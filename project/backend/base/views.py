@@ -73,6 +73,26 @@ def uploaded_videos_list(request):
     uploaded_videos = UploadedVideo.objects.filter(user=request.user).values('id', 'video')
     return JsonResponse(list(uploaded_videos), safe=False)
 
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_video_detections(request, video_id):
+    try:
+        uploaded_video = UploadedVideo.objects.get(id=video_id, user=request.user)
+    except UploadedVideo.DoesNotExist:
+        return Response({"error": "Uploaded video not found or does not belong to the user."}, status=status.HTTP_404_NOT_FOUND)
+    
+    detections_data = request.data.get('detections', [])
+    for detection_data in detections_data:
+        from .models import UploadVideoDetections
+        UploadVideoDetections.objects.create(
+            uploaded_video=uploaded_video, 
+            weapon_type=detection_data['label'], 
+            confidence=detection_data['confidence']
+        )
+    
+    return Response({"message": "Detections uploaded successfully."}, status=status.HTTP_201_CREATED)
+
+
 class CurrentUserView(APIView):
     permission_classes = [IsAuthenticated]
 
