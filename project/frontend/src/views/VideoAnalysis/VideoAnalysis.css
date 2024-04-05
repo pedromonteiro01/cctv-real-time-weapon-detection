@@ -1,0 +1,34 @@
+.video-analysis-wrapper {
+    color: #fff;
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 90%;
+    padding: 2rem 1.8rem 2rem 1.8rem;
+    height: auto;
+    min-height: 100vh;
+    background-color: #1E1E1E;
+}
+
+.video-analysis-canva {
+    width: 45%;
+    height: auto;
+}
+
+.video-analysis-wrapper-flex {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.video-analysis-canva canvas {
+    width: 100%;
+    height: 100%;
+}
+
+.video-analysis-detections-label {
+    width: 100%;
+    padding-left: 80%;
+}

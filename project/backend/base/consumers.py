@@ -109,37 +109,6 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         self.connection_open = False
 
-
-class CameraInfoConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
-        await self.accept()
-        asyncio.create_task(self.send_camera_info())
-
-    async def disconnect(self, close_code):
-        pass
-
-    async def send_camera_info(self):
-        cameras = [
-            {"id": "1", "location": "Hall"},
-            {"id": "2", "location": "Library"},
-            {"id": "3", "location": "Main Entrance"},
-            {"id": "4", "location": "Parking Lot"},
-            {"id": "5", "location": "Cafeteria"},
-            {"id": "6", "location": "Gym"},
-        ]
-
-        while True:
-            current_day = datetime.now().strftime('%d/%m/%Y')
-            current_hour = datetime.now().strftime('%H:%M:%S')
-
-            for camera in cameras:
-                camera["current_day"] = current_day
-                camera["current_hour"] = current_hour
-
-            await self.send(text_data=json.dumps({"cameras": cameras}))
-            
-            await asyncio.sleep(1)
-
 class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -212,3 +181,67 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
         from base.models import Camera
         cameras = Camera.objects.filter(user=self.user).values('id', 'location', 'video_path')
         return list(cameras)
+    
+class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
+    async def connect(self):
+        self.uploaded_video_id = self.scope['url_route']['kwargs']['videoUploadId']
+        self.uploaded_video_details = await self.get_uploaded_video_details(self.uploaded_video_id)
+
+        if self.uploaded_video_details:
+            await self.accept()
+            # Process the video and stream results
+            asyncio.get_event_loop().create_task(self.stream_video_analysis(self.uploaded_video_id))
+        else:
+            await self.close(code=4404)
+
+    async def stream_video_analysis(self, uploaded_video_id):
+        video_path = self.uploaded_video_details['video_path']
+        # Open the video file
+        cap = cv2.VideoCapture(video_path)
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+            detections, annotated_frame = self.process_frame_with_yolo(frame)
+
+            _, buffer = cv2.imencode('.jpg', annotated_frame)
+            frame_base64 = base64.b64encode(buffer).decode('utf-8')
+
+            await self.send(text_data=json.dumps({
+                'videoUploadId': uploaded_video_id,
+                'detections': detections,
+                'frame': frame_base64,
+            }))
+            await asyncio.sleep(0.033)  # Simulate real-time frame rate (about 30 FPS)
+        cap.release()
+
+    def process_frame_with_yolo(self, frame):
+        results = model(frame)
+        detections = []
+        for *xyxy, conf, cls in results.xyxy[0]:
+            label = model.names[int(cls)]
+            bbox = [float(coord) for coord in xyxy]
+            confidence = float(conf)
+            detections.append({
+                "label": label,
+                "confidence": confidence,
+                "bbox": bbox
+            })
+
+        annotated_frame = results.render()[0]
+        return detections, annotated_frame
+
+    @database_sync_to_async
+    def get_uploaded_video_details(self, uploaded_video_id):
+        from .models import UploadedVideo
+        try:
+            uploaded_video = UploadedVideo.objects.get(id=uploaded_video_id)
+            return {
+                'id': uploaded_video.id,
+                'video_path': uploaded_video.video.path if uploaded_video.video else None
+            }
+        except UploadedVideo.DoesNotExist:
+            return None
+
+    async def disconnect(self, close_code):
+        pass

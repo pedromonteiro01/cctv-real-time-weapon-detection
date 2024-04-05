@@ -10,6 +10,8 @@ import Login from './views/Login/Login';
 import { AuthProvider, useAuth } from './context/AuthContext/AuthContext';
 import PrivateRoute from './views/PrivateRoute/PrivateRoute';
 import DetectionHistory from './views/DetectionHistory/DetectionHistory';
+import VideoUpload from './views/Upload/Upload';
+import VideoAnalysis from './views/VideoAnalysis/VideoAnalysis';
 
 const AppContent = () => {
   const { authToken } = useAuth();
@@ -24,6 +26,8 @@ const AppContent = () => {
           <Route path="/personal" element={<PrivateRoute><Personal /></PrivateRoute>} />
           <Route path="/cameras" element={<PrivateRoute><Dataset /></PrivateRoute>} />
           <Route path="/history" element={<PrivateRoute><DetectionHistory /></PrivateRoute>} />
+          <Route path="/upload" element={<PrivateRoute><VideoUpload /></PrivateRoute>} />
+          <Route path="/upload/:videoId" element={<PrivateRoute><VideoAnalysis /></PrivateRoute>}  />
           <Route path="*" element={<Navigate to="/login" replace />} /> {/* Catch-all route */}
         </Routes>
       </div>

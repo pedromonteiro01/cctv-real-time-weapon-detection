@@ -9,11 +9,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from .serializers import CustomUserSerializer
 from rest_framework.authtoken.models import Token
-from .models import Detection, Camera
+from .models import Detection, Camera, UploadedVideo
 from .serializers import DetectionSerializer
 from django.core.serializers import serialize
 from rest_framework.decorators import api_view, permission_classes
 from django.shortcuts import get_object_or_404
+from .serializers import UploadedVideoSerializer
 
 @api_view(['POST'])
 def login_view(request):
@@ -55,6 +56,22 @@ def detection_list_create(request, camera_id=None):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_video(request):
+    serializer = UploadedVideoSerializer(data=request.data, context={'request': request})
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    else:
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def uploaded_videos_list(request):
+    uploaded_videos = UploadedVideo.objects.filter(user=request.user).values('id', 'video')
+    return JsonResponse(list(uploaded_videos), safe=False)
 
 class CurrentUserView(APIView):
     permission_classes = [IsAuthenticated]

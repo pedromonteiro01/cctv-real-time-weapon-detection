@@ -66,3 +66,6 @@ class Detection(models.Model):
     def __str__(self):
         return f"Detection at {self.timestamp} by Camera {self.camera.id} - {self.weapon_type} with confidence {self.confidence}%"
 
+class UploadedVideo(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    video = models.FileField(upload_to='uploaded_videos/')

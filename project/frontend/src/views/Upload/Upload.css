@@ -1,0 +1,20 @@
+.upload-wrapper {
+    color: #fff;
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 90%;
+    padding: 2rem 1.8rem 2rem 1.8rem;
+    height: auto;
+    min-height: 100vh;
+    background-color: #1E1E1E;
+}
+
+.redirect-upload-video:hover {
+    transform: scale(1.1);
+    cursor: pointer;
+}
+
+.upload-video-table {
+    margin-top: 2rem;
+}

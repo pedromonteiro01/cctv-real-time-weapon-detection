@@ -1,7 +1,7 @@
 # serializers.py in your app directory
 
 from rest_framework import serializers
-from .models import CustomUser, Detection, Camera
+from .models import CustomUser, Detection, Camera, UploadedVideo
 
 class CustomUserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -17,3 +17,14 @@ class CameraSerializer(serializers.ModelSerializer):
     class Meta:
         model = Camera
         fields = '__all__'
+
+class UploadedVideoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UploadedVideo
+        fields = ['id', 'user', 'video']
+        read_only_fields = ('user',)  # Ensure user field is not required from the request
+
+    def create(self, validated_data):
+        # Automatically assign the authenticated user to the uploaded video
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
