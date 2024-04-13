@@ -3,7 +3,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -15,6 +15,9 @@ from django.core.serializers import serialize
 from rest_framework.decorators import api_view, permission_classes
 from django.shortcuts import get_object_or_404
 from .serializers import UploadedVideoSerializer
+from django.http import Http404
+from django.http import FileResponse
+from django.core.exceptions import ObjectDoesNotExist
 
 @api_view(['POST'])
 def login_view(request):
@@ -69,29 +72,79 @@ def upload_video(request):
     
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def uploaded_videos_list(request):
-    uploaded_videos = UploadedVideo.objects.filter(user=request.user).values('id', 'video')
-    return JsonResponse(list(uploaded_videos), safe=False)
+def uploaded_videos_list(request, video_id=None):
+    if video_id:
+        try:
+            # Fetch details of a specific video if video_id is provided
+            uploaded_video = UploadedVideo.objects.get(user=request.user, id=video_id)
+            video_details = {
+                'id': uploaded_video.id,
+                'video': uploaded_video.video.url,
+                'analyzed': uploaded_video.analyzed
+            }
 
+            print("video details: ", video_details)
+            return JsonResponse(video_details)
+        except UploadedVideo.DoesNotExist:
+            raise Http404("Uploaded video not found.")
+    else:
+        # List all uploaded videos for the user if no video_id is provided
+        uploaded_videos = UploadedVideo.objects.filter(user=request.user).values('id', 'video', 'analyzed')
+        print(uploaded_videos)
+        return JsonResponse(list(uploaded_videos), safe=False)
+    
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def delete_video_detections(request, video_id):
+    try:
+        from .models import UploadVideoDetections
+        video = UploadedVideo.objects.get(id=video_id, user=request.user)
+        UploadVideoDetections.objects.filter(uploaded_video=video).delete()
+        return Response({"message": "Detections deleted successfully."})
+    except UploadedVideo.DoesNotExist:
+        return Response({"error": "Video not found."}, status=404)
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
 def upload_video_detections(request, video_id):
+    from .models import UploadVideoDetections
     try:
         uploaded_video = UploadedVideo.objects.get(id=video_id, user=request.user)
     except UploadedVideo.DoesNotExist:
         return Response({"error": "Uploaded video not found or does not belong to the user."}, status=status.HTTP_404_NOT_FOUND)
-    
-    detections_data = request.data.get('detections', [])
-    for detection_data in detections_data:
-        from .models import UploadVideoDetections
-        UploadVideoDetections.objects.create(
-            uploaded_video=uploaded_video, 
-            weapon_type=detection_data['label'], 
-            confidence=detection_data['confidence']
-        )
-    
-    return Response({"message": "Detections uploaded successfully."}, status=status.HTTP_201_CREATED)
 
+    if request.method == 'POST':
+        detections_data = request.data.get('detections', [])
+        for detection_data in detections_data:
+            UploadVideoDetections.objects.create(
+                uploaded_video=uploaded_video,
+                weapon_type=detection_data['label'],
+                confidence=detection_data['confidence'],
+                frame=detection_data.get('frame', '')  # Save the frame data if available
+            )
+        return Response({"message": "Detections uploaded successfully."}, status=status.HTTP_201_CREATED)
+
+    elif request.method == 'GET':
+        detections = UploadVideoDetections.objects.filter(uploaded_video=uploaded_video).order_by('-created_at')
+        detections_list = [{
+            'label': detection.weapon_type,
+            'confidence': detection.confidence,
+            'frame': detection.frame,
+            'created_at': detection.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+        } for detection in detections]
+
+        return Response(detections_list, status=status.HTTP_200_OK)
+
+
+def download_processed_video(request, video_id):
+    try:
+        video = UploadedVideo.objects.get(id=video_id)
+        if video.processed_video:
+            return FileResponse(video.processed_video.open(), as_attachment=True, filename=f"{video_id}_processed.mp4")
+        else:
+            return HttpResponse("Processed video not available.", status=404)
+    except UploadedVideo.DoesNotExist:
+        return HttpResponse("Video not found.", status=404)
 
 class CurrentUserView(APIView):
     permission_classes = [IsAuthenticated]

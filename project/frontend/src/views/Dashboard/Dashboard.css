@@ -16,6 +16,7 @@
     width: 100%;
     display: flex;
     justify-content: space-between;
+    align-items: flex-end;
     height: 50%;
 }
 
@@ -29,22 +30,14 @@
 }
 
 .recorded-warning-wrapper .recorded-data {
-    width: 70%;
     color: #fff;
+    width: 100%;
 }
 
-.recorded-warning-wrapper .unsolved-issue {
+.unsolved-issue {
+    background-color: yellow;
     width: 30%;
     color: #fff;
-}
-
-.dashboard-video-wrapper .dashboard-items {
-    width: 40%;
-}
-
-.dashboard-video-wrapper .dashboard-items p {
-    color: #fff;
-    font-size: 1.4rem;
 }
 
 .unsolved-issue-content {
@@ -53,6 +46,7 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    width: 25rem;
 }
 
 .unsolved-issue-content h3 {

@@ -13,6 +13,9 @@ from asgiref.sync import sync_to_async
 import threading
 from channels.db import database_sync_to_async
 import numpy as np
+import tempfile
+import os
+from django.core.files import File
 
 model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best.pt')
 
@@ -195,14 +198,39 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
             await self.close(code=4404)
 
     async def stream_video_analysis(self, uploaded_video_id):
-        video_path = self.uploaded_video_details['video_path']
-        # Open the video file
+        video_details = await self.get_uploaded_video_details(uploaded_video_id)
+        video_path = video_details['video_path']
         cap = cv2.VideoCapture(video_path)
+
+        # Verify if the video capture has been successfully opened
+        if not cap.isOpened():
+            print("Error: Unable to open video source.")
+            return
+
+        # Read the first frame to get video properties
+        ret, frame = cap.read()
+        if not ret:
+            print("Error: Unable to read video frame.")
+            cap.release()
+            return
+
+        # Get dimensions of the first frame for VideoWriter initialization
+        height, width = frame.shape[:2]
+        
+        # Define the codec and create VideoWriter object with dynamic dimensions
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        temp_file_path = os.path.join(tempfile.gettempdir(), f"{uploaded_video_id}_processed.mp4")
+        out = cv2.VideoWriter(temp_file_path, fourcc, 20.0, (width, height))
+
+        # Reinitialize the video capture to start from the first frame
+        cap = cv2.VideoCapture(video_path)
+        
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
                 break
             detections, annotated_frame = self.process_frame_with_yolo(frame)
+            out.write(annotated_frame)  # Write the processed frame
 
             _, buffer = cv2.imencode('.jpg', annotated_frame)
             frame_base64 = base64.b64encode(buffer).decode('utf-8')
@@ -212,8 +240,29 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
                 'detections': detections,
                 'frame': frame_base64,
             }))
-            await asyncio.sleep(0.033)  # Simulate real-time frame rate (about 30 FPS)
+            await asyncio.sleep(0.1)  # Simulate real-time frame rate
+
         cap.release()
+        out.release()
+        await self.save_processed_video(uploaded_video_id, temp_file_path)
+        await self.mark_video_as_analyzed(uploaded_video_id)
+
+        await self.send(text_data=json.dumps({
+            'videoUploadId': uploaded_video_id,
+            'status': 'completed',
+            'analyzed': True  # Indicate that the video has been analyzed
+        }))
+
+    @database_sync_to_async
+    def mark_video_as_analyzed(self, uploaded_video_id):
+        try:
+            from .models import UploadedVideo
+            uploaded_video = UploadedVideo.objects.get(id=uploaded_video_id)
+            uploaded_video.analyzed = True
+            uploaded_video.save()
+            print(f"Video {uploaded_video_id} marked as analyzed.")
+        except UploadedVideo.DoesNotExist:
+            print(f"Uploaded video with ID {uploaded_video_id} not found.")
 
     def process_frame_with_yolo(self, frame):
         results = model(frame)
@@ -227,14 +276,26 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
                 "confidence": confidence,
                 "bbox": bbox
             })
-
+        
         annotated_frame = results.render()[0]
         return detections, annotated_frame
 
     @database_sync_to_async
-    def get_uploaded_video_details(self, uploaded_video_id):
-        from .models import UploadedVideo
+    def save_processed_video(self, uploaded_video_id, video_path):
         try:
+            from .models import UploadedVideo
+            uploaded_video = UploadedVideo.objects.get(id=uploaded_video_id)
+            with open(video_path, 'rb') as f:
+                uploaded_video.processed_video.save(f"{uploaded_video_id}_processed.mp4", File(f))
+            os.remove(video_path)  # Clean up the temporary file
+            print(f"Processed video for {uploaded_video_id} saved successfully.")
+        except UploadedVideo.DoesNotExist:
+            print(f"Uploaded video with ID {uploaded_video_id} not found.")
+
+    @database_sync_to_async
+    def get_uploaded_video_details(self, uploaded_video_id):
+        try:
+            from .models import UploadedVideo
             uploaded_video = UploadedVideo.objects.get(id=uploaded_video_id)
             return {
                 'id': uploaded_video.id,

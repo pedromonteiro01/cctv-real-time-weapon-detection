@@ -32,3 +32,7 @@
     width: 100%;
     padding-left: 80%;
 }
+
+.download-link:hover {
+    cursor: pointer;
+}

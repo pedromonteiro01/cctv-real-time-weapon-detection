@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext/AuthContext';
 import './Upload.css';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { FaExternalLinkAlt } from "react-icons/fa";
+import { FaExternalLinkAlt, FaCheck, FaTimes } from "react-icons/fa";
 
 
 function VideoUpload() {
@@ -20,7 +20,7 @@ function VideoUpload() {
         })
             .then(response => response.json())
             .then(data => {
-                console.log(data); // Log the data to inspect its structure
+                console.log("data: ", data); // Log the data to inspect its structure
                 setVideos(data);
             })
             .catch(error => {
@@ -70,6 +70,7 @@ function VideoUpload() {
                     <tr>
                         <th>ID</th>
                         <th>Video Name</th>
+                        <th>Status</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -78,6 +79,9 @@ function VideoUpload() {
                         <tr key={video.id}>
                             <td>{video.id}</td>
                             <td>{video.video}</td>
+                            <td>
+                                {video.analyzed ? <FaCheck style={{ color: 'green' }} /> : <FaTimes style={{ color: 'red' }} />}
+                            </td>
                             <td>
                                 <FaExternalLinkAlt
                                     onClick={() => navigate(`/upload/${video.id}`)}

@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import './VideoAnalysis.css';
 import { useAuth } from '../../context/AuthContext/AuthContext';
+import Modal from '../DetectionHistory/Modal';
+import { FaEye, FaDownload } from "react-icons/fa";
 
 function VideoAnalysis() {
     const { videoId } = useParams();
@@ -9,49 +11,180 @@ function VideoAnalysis() {
     const [detections, setDetections] = useState([]);
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 5;
+    const [isAnalyzed, setIsAnalyzed] = useState(false);
     const { authToken } = useAuth();
+    const [showModal, setShowModal] = useState(false);
+    const [selectedFrame, setSelectedFrame] = useState('');
+    const [processedVideoUrl, setProcessedVideoUrl] = useState('');
+
+    useEffect(() => {
+        fetch(`http://localhost:8000/api/uploaded_videos/${videoId}/`, {
+            headers: {
+                'Authorization': `Token ${authToken}`,
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            setIsAnalyzed(data.analyzed);
+            if (!data.analyzed) {
+                // Video is not analyzed, delete detections
+                fetch(`http://localhost:8000/api/delete_detections/${videoId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Token ${authToken}`,
+                    },
+                })
+                .then(res => res.json())
+                .then(result => console.log(result.message))
+                .catch(error => console.error('Error deleting detections:', error));
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching video details:', error);
+        });
+    }, [videoId, authToken]);
+
+    useEffect(() => {
+        fetch(`http://localhost:8000/api/uploaded_videos/${videoId}/`, {
+            headers: {
+                'Authorization': `Token ${authToken}`,
+            },
+        })
+            .then(response => response.json())
+            .then(data => {
+                setIsAnalyzed(data.analyzed);
+                if (data.analyzed) {
+                    setProcessedVideoUrl(`http://localhost:8000/api/download_video/${videoId}/`);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching video details:', error);
+            });
+    }, [videoId, authToken]);
+
+    const handleDownloadClick = async (e) => {
+        e.preventDefault(); // Prevent the default anchor behavior
+
+        try {
+            const response = await fetch(`http://localhost:8000/api/download_video/${videoId}/`, {
+                headers: {
+                    'Authorization': `Token ${authToken}`,
+                },
+            });
+
+            if (!response.ok) throw new Error('Network response was not ok.');
+
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.setAttribute('download', `${videoId}_processed_video.mp4`);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+            window.URL.revokeObjectURL(downloadUrl);
+        } catch (error) {
+            console.error('Error downloading the file:', error);
+        }
+    };
 
     const persistDetections = (detections) => {
+        const payload = {
+            detections: detections.map(detection => ({
+                ...detection,
+                frame: detection.frame,
+            })),
+        };
+
         fetch(`http://localhost:8000/api/uploaded_videos/${videoId}/detections/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization':  `Token ${authToken}`,
+                'Authorization': `Token ${authToken}`,
             },
-            body: JSON.stringify({ detections })
+            body: JSON.stringify({
+                detections: detections.map(detection => ({
+                    ...detection,
+                    frame: detection.frame,
+                })),
+            }),
         })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Detections persisted successfully:', data);
-        })
-        .catch(error => {
-            console.error('Error persisting detections:', error);
-        });
+            .then(response => response.json())
+            .catch(error => {
+                console.error('Error persisting detections:', error);
+            });
     };
 
     useEffect(() => {
-        const ws = new WebSocket(`ws://localhost:8000/ws/upload/${videoId}/`);
-        console.log(`Attempting to connect to WebSocket with videoId: ${videoId}`);
+        fetchVideoDetails();
 
-        ws.onopen = () => console.log('WebSocket connection established');
-        ws.onerror = (error) => console.log('WebSocket error:', error);
-        ws.onmessage = (e) => {
-            const data = JSON.parse(e.data);
-            console.log('Received data:', data);
-            if (data.frame) {
-                drawFrame(data.frame);
-            }
-            if (data.detections) {
-                setDetections((prevDetections) => [...prevDetections, ...data.detections]);
-                persistDetections(data.detections);
-            }
-        };
+        fetchDetections();
+    }, [videoId, authToken]);
 
-        return () => {
-            console.log('Closing WebSocket connection');
-            ws.close();
-        };
-    }, [videoId]);
+    const fetchDetections = () => {
+        fetch(`http://localhost:8000/api/uploaded_videos/${videoId}/detections/`, {
+            headers: {
+                'Authorization': `Token ${authToken}`,
+            },
+        })
+            .then(response => response.json())
+            .then(data => {
+                setDetections(data);
+            })
+            .catch(error => {
+                console.error('Error fetching detections:', error);
+            });
+    };
+
+    useEffect(() => {
+        if (!isAnalyzed) {
+            const ws = new WebSocket(`ws://localhost:8000/ws/upload/${videoId}/`);
+
+            ws.onopen = () => console.log('WebSocket connection established');
+            ws.onerror = (error) => console.log('WebSocket error:', error);
+            ws.onmessage = (e) => {
+                const data = JSON.parse(e.data);
+                if (data.frame) {
+                    drawFrame(data.frame);
+                }
+                if (data.detections) {
+                    const detectionsWithFrames = data.detections.map(detection => ({
+                        ...detection,
+                        frame: data.frame,
+                    }));
+                    persistDetections(detectionsWithFrames);
+                    setDetections((prevDetections) => [...prevDetections, ...detectionsWithFrames]);
+                }
+                if (data.status && data.status === 'completed') {
+                    setIsAnalyzed(data.analyzed);
+                    setProcessedVideoUrl(`http://localhost:8000/api/download_video/${videoId}/`);
+                }
+            };
+
+            return () => {
+                console.log('Closing WebSocket connection');
+                ws.close();
+            };
+        }
+    }, [isAnalyzed, videoId]); // Now depends on isAnalyzed and videoId.
+
+    const fetchVideoDetails = () => {
+        fetch(`http://localhost:8000/api/uploaded_videos/${videoId}/`, {
+            headers: {
+                'Authorization': `Token ${authToken}`,
+            },
+        })
+            .then(response => response.json())
+            .then(data => {
+                setIsAnalyzed(data.analyzed);
+                if (data.analyzed) {
+                    setProcessedVideoUrl(`http://localhost:8000/api/download_video/${videoId}/`);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching video details:', error);
+            });
+    };
 
     const drawFrame = (frameBase64) => {
         const canvas = canvasRef.current;
@@ -59,7 +192,6 @@ function VideoAnalysis() {
         const image = new Image();
 
         image.onload = function () {
-            console.log(`Image loaded, size: ${image.width}x${image.height}`);
             canvas.width = image.width;
             canvas.height = image.height;
             context.drawImage(image, 0, 0);
@@ -74,6 +206,15 @@ function VideoAnalysis() {
         setCurrentPage(Number(event.target.value));
     };
 
+    const openDetectionFrame = (frame) => {
+        setSelectedFrame(frame);
+        setShowModal(true);
+    };
+
+    const closeDetectionFrame = () => {
+        setShowModal(false);
+    };
+
     const maxPage = Math.ceil(detections.length / itemsPerPage);
     const indexOfLastDetection = detections.length - ((currentPage - 1) * itemsPerPage);
     const indexOfFirstDetection = Math.max(indexOfLastDetection - itemsPerPage, 0);
@@ -82,9 +223,22 @@ function VideoAnalysis() {
     return (
         <div className='video-analysis-wrapper'>
             <div className='video-analysis-wrapper-flex'>
-                <div className='video-analysis-canva'>
-                    <canvas ref={canvasRef}></canvas>
-                </div>
+                {isAnalyzed ? (
+                    <div className="message">
+                        This video has been analyzed.
+                        {processedVideoUrl && (
+                            <div>
+                                <a onClick={handleDownloadClick} className="download-link">
+                                    <FaDownload /> Download Processed Video
+                                </a>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className='video-analysis-canva'>
+                        <canvas ref={canvasRef}></canvas>
+                    </div>
+                )}
                 <div className='video-analysis-detections'>
                     <div className="video-analysis-detections-label">
                         <label>
@@ -103,6 +257,7 @@ function VideoAnalysis() {
                             <tr>
                                 <th>Weapon Type</th>
                                 <th>Confidence</th>
+                                <th>Frame</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -110,10 +265,16 @@ function VideoAnalysis() {
                                 <tr key={index}>
                                     <td>{detection.label}</td>
                                     <td>{(detection.confidence * 100).toFixed(2)}%</td>
+                                    <td>
+                                        <FaEye onClick={() => openDetectionFrame(detection.frame)} className="open-frame-button">
+
+                                        </FaEye>
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
+                    {showModal && <Modal frame={selectedFrame} closeModal={closeDetectionFrame} />}
                 </div>
             </div>
         </div>

@@ -63,16 +63,8 @@ const Dashboard = () => {
     return (
         <div className="dashboard-wrapper">
             <div className='dashboard-video-wrapper'>
-                <DashboardItems />
                 <DetectionFrame onWeaponDetected={handleWeaponDetection} />
-            </div>
-            <div className='recorded-warning-wrapper'>
-                <div className='recorded-data'>
-                    <p>Recorded Data</p>
-                    <RecordTable records={records} setRecords={setRecords} />
-                </div>
                 <div className='unsolved-issue'>
-                    <p>Unsolved Issue</p>
                     <div className='unsolved-issue-content'>
                         <h3>Warning</h3>
                         <div className='unsolved-issue-content-weapon'>
@@ -83,6 +75,12 @@ const Dashboard = () => {
                             <img src={warning} alt='warning' />
                         </div>
                     </div>
+                </div>
+            </div>
+            <div className='recorded-warning-wrapper'>
+                <div className='recorded-data'>
+                    <p>Recorded Data</p>
+                    <RecordTable records={records} setRecords={setRecords} />
                 </div>
             </div>
         </div>
