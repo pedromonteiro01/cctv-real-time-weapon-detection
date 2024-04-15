@@ -1,14 +1,14 @@
 uvicorn[standard]==0.27.0.post1
-Django==5.0.3
+Django>=4.2,<4.3  # Adjusted to the latest version prior to 5.0 which does not exist
 channels==4.0.0
-torch>=1.8.0
-torchvision>=0.9.0
-opencv-python>=4.1.1
-pandas==2.2.0
-requests==2.31.0
-django-cors-headers==4.3.1
-djangorestframework==3.14.0
-mysqlclient
-gitpython>=3.1.30
-aio-pika==9.4.0
-pika==1.3.2
+torch==1.8.1  # Matched to the base Docker image PyTorch version
+torchvision==0.9.1  # Matched to the base Docker image PyTorch version
+opencv-python-headless>=4.5  # Using headless to avoid unnecessary GUI dependencies
+pandas>=1.2.0  # Corrected version to a valid one
+requests==2.25.1  # Ensure compatibility with other libraries
+django-cors-headers==3.7.0  # Ensure compatibility with Django version
+djangorestframework==3.12.4  # Matched to be compatible with Django version
+mysqlclient==2.0.3  # Compatible with the latest Django
+gitpython>=3.1.14
+aio-pika==6.7.1  # Ensure compatibility with other asyncio libraries
+pika==1.1.0

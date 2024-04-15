@@ -17,7 +17,8 @@ import tempfile
 import os
 from django.core.files import File
 
-model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best.pt')
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best2.pt').to(device)
 
 class VideoStreamConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
@@ -85,7 +86,14 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
                     print(f"Error sending frame to websocket: {e}")
 
     def process_frame_with_yolo(self, frame):
+        # Convert frame to a format suitable for the model
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = torch.from_numpy(frame).to(device).float() / 255.0  # Normalize and transfer to device
+        frame = frame.permute(2, 0, 1).unsqueeze(0)  # Add batch dimension and channel-first format
+
+        # Perform inference
         results = model(frame)
+
         detections = []
         for *xyxy, conf, cls in results.xyxy[0]:
             label = model.names[int(cls)]
@@ -96,8 +104,9 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
                 "confidence": confidence,
                 "bbox": bbox
             })
-        
-        annotated_frame = results.render()[0]
+
+        # Convert result tensor to image
+        annotated_frame = results.render()[0].permute(1, 2, 0).cpu().numpy()  # Channel-last and back to CPU
         return detections, annotated_frame
 
     @database_sync_to_async
@@ -265,6 +274,10 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
             print(f"Uploaded video with ID {uploaded_video_id} not found.")
 
     def process_frame_with_yolo(self, frame):
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = torch.from_numpy(frame).to(device).float() / 255.0
+        frame = frame.permute(2, 0, 1).unsqueeze(0)  # Add batch dimension
+
         results = model(frame)
         detections = []
         for *xyxy, conf, cls in results.xyxy[0]:
@@ -276,10 +289,10 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
                 "confidence": confidence,
                 "bbox": bbox
             })
-        
-        annotated_frame = results.render()[0]
-        return detections, annotated_frame
 
+        annotated_frame = results.render()[0].permute(1, 2, 0).cpu().numpy()
+        return detections, annotated_frame
+    
     @database_sync_to_async
     def save_processed_video(self, uploaded_video_id, video_path):
         try:
