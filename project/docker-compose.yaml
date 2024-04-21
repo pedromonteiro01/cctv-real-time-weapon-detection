@@ -49,12 +49,6 @@ services:
       - mysql
     ports:
       - "8000:8000"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              capabilities: [gpu]
 
   rabbitmq:
     image: rabbitmq:3-management
