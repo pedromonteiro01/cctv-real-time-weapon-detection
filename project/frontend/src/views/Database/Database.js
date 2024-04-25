@@ -23,7 +23,7 @@ const CameraStream = ({ camera, frameSrc }) => {
 
 const Database = () => {
     const [cameras, setCameras] = useState({});
-    const [isLoading, setIsLoading] = useState(true);  // Initialize loading state as true
+    const [isLoading, setIsLoading] = useState(true);
     const ws = useRef(null);
     const { authToken } = useAuth();
 
@@ -36,7 +36,7 @@ const Database = () => {
 
         ws.current.onopen = () => {
             console.log("WebSocket connected");
-            setIsLoading(true);  // Set loading to true when the connection opens
+            setIsLoading(true);
         };
 
         ws.current.onmessage = (event) => {
@@ -61,13 +61,13 @@ const Database = () => {
                         hour: formattedTime,
                     },
                 }));
-                setIsLoading(false);  // Set loading to false when frames are updated
+                setIsLoading(false);
             }
         };
 
         ws.current.onerror = (error) => {
             console.error("WebSocket error:", error);
-            setIsLoading(false);  // Ensure loading is set to false even if there is an error
+            setIsLoading(false);
         };
 
         return () => ws.current?.close();

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import DashboardItems from './DashBoardItems/DashBoardItems';
 import './Dashboard.css';
 import RecordTable from './Table/Table';
 import DetectionFrame from './VideoFrames/DetectionFrame';
@@ -24,7 +23,6 @@ const Dashboard = () => {
             confidence: Math.round(detectedInfo.confidence * 100)
         };
     
-        // Update to use a function to update the state to ensure the previous state is accessed correctly
         setRecords(prevRecords => {
             const updatedNo = prevRecords.length + 1;
             return [{...newRecord, no: updatedNo}, ...prevRecords];
