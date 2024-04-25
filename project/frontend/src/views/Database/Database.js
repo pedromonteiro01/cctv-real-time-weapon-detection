@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import TopFrameOverlay from '../../components/TopFrameOverlay/TopFrameOverlay';
 import './Database.css';
-import { SyncLoader } from 'react-spinners';
+import { ClipLoader } from 'react-spinners';
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
 import { useAuth } from '../../context/AuthContext/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -23,6 +23,7 @@ const CameraStream = ({ camera, frameSrc }) => {
 
 const Database = () => {
     const [cameras, setCameras] = useState({});
+    const [isLoading, setIsLoading] = useState(true);  // Initialize loading state as true
     const ws = useRef(null);
     const { authToken } = useAuth();
 
@@ -33,24 +34,9 @@ const Database = () => {
         }
         ws.current = new WebSocket(`ws://localhost:8000/ws/multi_camera/${authToken}/`);
 
-        const formatTimestamp = (timestamp) => {
-            if (isNaN(timestamp) || timestamp === undefined) {
-                console.error("Invalid timestamp:", timestamp);
-                return { formattedDate: 'Invalid Date', formattedTime: 'Invalid Time' };
-            }
-
-            const date = new Date(timestamp);
-            const day = date.getDate().toString().padStart(2, '0'); // dd
-            const month = (date.getMonth() + 1).toString().padStart(2, '0'); // mm
-            const year = date.getFullYear(); // yyyy
-
-            const hours = date.getHours(); // h
-            const minutes = date.getMinutes().toString().padStart(2, '0'); // min
-
-            const formattedDate = `${day}/${month}/${year}`; // dd/mm/yyyy
-            const formattedTime = `${hours}:${minutes}`; // h:min
-
-            return { formattedDate, formattedTime };
+        ws.current.onopen = () => {
+            console.log("WebSocket connected");
+            setIsLoading(true);  // Set loading to true when the connection opens
         };
 
         ws.current.onmessage = (event) => {
@@ -75,11 +61,37 @@ const Database = () => {
                         hour: formattedTime,
                     },
                 }));
+                setIsLoading(false);  // Set loading to false when frames are updated
             }
+        };
+
+        ws.current.onerror = (error) => {
+            console.error("WebSocket error:", error);
+            setIsLoading(false);  // Ensure loading is set to false even if there is an error
         };
 
         return () => ws.current?.close();
     }, [authToken]);
+
+    const formatTimestamp = (timestamp) => {
+        if (isNaN(timestamp) || timestamp === undefined) {
+            console.error("Invalid timestamp:", timestamp);
+            return { formattedDate: 'Invalid Date', formattedTime: 'Invalid Time' };
+        }
+
+        const date = new Date(timestamp);
+        const day = date.getDate().toString().padStart(2, '0'); // dd
+        const month = (date.getMonth() + 1).toString().padStart(2, '0'); // mm
+        const year = date.getFullYear(); // yyyy
+
+        const hours = date.getHours(); // h
+        const minutes = date.getMinutes().toString().padStart(2, '0'); // min
+
+        const formattedDate = `${day}/${month}/${year}`; // dd/mm/yyyy
+        const formattedTime = `${hours}:${minutes}`; // h:min
+
+        return { formattedDate, formattedTime };
+    };
 
     return (
         <div className='database-wrapper'>
@@ -88,12 +100,16 @@ const Database = () => {
                 <button onClick={null}>Next <FaArrowRight /></button>
             </div>
             <div className='database-images-grid'>
-                {Object.keys(cameras).length > 0 ? (
-                    Object.values(cameras).map(camera => (
-                        <CameraStream key={camera.id} camera={camera} frameSrc={camera.frameSrc} />
-                    ))
-                ) :
-                    null}
+                {isLoading ? (
+                    <div className="loader-container">
+                        <ClipLoader color="#ffffff" />
+                    </div>
+                ) : (
+                    Object.keys(cameras).length > 0 ?
+                        Object.values(cameras).map(camera => (
+                            <CameraStream key={camera.id} camera={camera} frameSrc={camera.frameSrc} />
+                        )) : <div>No camera data available.</div>
+                )}
             </div>
         </div>
     );

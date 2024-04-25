@@ -43,7 +43,6 @@ def detection_list_create(request, camera_id=None):
             user_cameras = user_cameras.filter(id=camera_id)
         detections = Detection.objects.filter(camera__in=user_cameras).order_by('-date', '-time')
         serializer = DetectionSerializer(detections, many=True)
-        print(f"\n {serializer.data} \n")
         return Response(serializer.data)
 
     elif request.method == 'POST':
@@ -83,14 +82,12 @@ def uploaded_videos_list(request, video_id=None):
                 'analyzed': uploaded_video.analyzed
             }
 
-            print("video details: ", video_details)
             return JsonResponse(video_details)
         except UploadedVideo.DoesNotExist:
             raise Http404("Uploaded video not found.")
     else:
         # List all uploaded videos for the user if no video_id is provided
         uploaded_videos = UploadedVideo.objects.filter(user=request.user).values('id', 'video', 'analyzed')
-        print(uploaded_videos)
         return JsonResponse(list(uploaded_videos), safe=False)
     
 @api_view(['POST'])

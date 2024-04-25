@@ -65,12 +65,11 @@ const RecordTable = ({ records, setRecords }) => {
             no: index + 1,
         }));
         setRecords(transformedRecords);
-        console.log("transformedRecords: ", transformedRecords);
     })
     .catch((error) => {
         console.error('Error:', error);
     });
-}, [authToken]);
+}, []);
 
   const indexOfLastRecord = currentPage * recordsPerPage;
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;

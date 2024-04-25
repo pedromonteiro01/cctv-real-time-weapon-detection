@@ -27,7 +27,6 @@ function VideoAnalysis() {
         .then(data => {
             setIsAnalyzed(data.analyzed);
             if (!data.analyzed) {
-                // Video is not analyzed, delete detections
                 fetch(`http://localhost:8000/api/delete_detections/${videoId}/`, {
                     method: 'POST',
                     headers: {
@@ -42,7 +41,7 @@ function VideoAnalysis() {
         .catch(error => {
             console.error('Error fetching video details:', error);
         });
-    }, [videoId, authToken]);
+    }, []);
 
     useEffect(() => {
         fetch(`http://localhost:8000/api/uploaded_videos/${videoId}/`, {

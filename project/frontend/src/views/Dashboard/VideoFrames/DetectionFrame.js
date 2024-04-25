@@ -62,7 +62,7 @@ const DetectionFrame = ({ onWeaponDetected }) => {
         };
 
         return () => ws.close();
-    }, [cameraId, onWeaponDetected, cameraInfo]);
+    }, [cameraId]);
 
 
     const toggleExpandVideo = () => {

@@ -50,7 +50,7 @@ def main():
     }
     camera_sources = {
         '1': ['./media/guns.mp4'],  # Camera ID 1 video
-        '2': ['./media/guns.mp4'],  # Camera ID 2 video
+        '2': ['./media/guns4.mp4'],  # Camera ID 2 video
         '3': ['./media/guns.mp4'],  # Camera ID 3 video
     }
 
