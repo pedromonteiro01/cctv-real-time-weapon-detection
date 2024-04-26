@@ -17,6 +17,7 @@ import numpy as np
 import tempfile
 import os
 from django.core.files import File
+import subprocess
 
 model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best3.pt')
 
@@ -28,7 +29,6 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
         if self.camera_details:
             await self.accept()
             self.connection_open = True
-            # Ensure that only one RabbitMQ connection is opened per camera.
             self.connection = await self.create_rabbitmq_connection()
             asyncio.create_task(self.listen_to_rabbitmq(self.camera_id))
         else:
@@ -38,14 +38,13 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
         rabbitmq_server = 'rabbitmq'
         rabbitmq_username = 'user'
         rabbitmq_password = 'password'
-        # Connection is established and returned to be reused.
         return await connect_robust(
             f"amqp://{rabbitmq_username}:{rabbitmq_password}@{rabbitmq_server}/"
         )
 
     async def listen_to_rabbitmq(self, camera_id):
         async with self.connection:
-            channel = await self.connection.channel()  # Use the existing connection
+            channel = await self.connection.channel()
             queue_name = f"camera_stream_{camera_id}"
             queue = await channel.declare_queue(queue_name, durable=True)
 
@@ -192,38 +191,47 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
 
     async def stream_video_analysis(self, uploaded_video_id):
         video_details = await self.get_uploaded_video_details(uploaded_video_id)
+
         video_path = video_details['video_path']
+        total_duration = self.get_video_duration(video_path)
+        print(f"Total video duration: {total_duration} seconds")
         cap = cv2.VideoCapture(video_path)
 
-        # Verify if the video capture has been successfully opened
-        if not cap.isOpened():
-            print("Error: Unable to open video source.")
-            return
+        # total_duration = self.get_video_duration_ffprobe(video_path)
+        # print(f"Total video duration using ffprobe: {total_duration} seconds")
 
-        # Read the first frame to get video properties
         ret, frame = cap.read()
         if not ret:
             print("Error: Unable to read video frame.")
             cap.release()
             return
 
-        # Get dimensions of the first frame for VideoWriter initialization
         height, width = frame.shape[:2]
-        
+
         # Define the codec and create VideoWriter object with dynamic dimensions
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         temp_file_path = os.path.join(tempfile.gettempdir(), f"{uploaded_video_id}_processed.mp4")
         out = cv2.VideoWriter(temp_file_path, fourcc, 20.0, (width, height))
 
-        # Reinitialize the video capture to start from the first frame
-        cap = cv2.VideoCapture(video_path)
-        
+
+        if not cap.isOpened():
+            print("Error: Unable to open video source.")
+            return
+
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
                 break
+
+            # Retrieve the current timestamp of the frame being processed
+            timestamp_msec = cap.get(cv2.CAP_PROP_POS_MSEC)
+            timestamp = timestamp_msec / 1000.0  # Convert milliseconds to seconds
+
             detections, annotated_frame = self.process_frame_with_yolo(frame)
             out.write(annotated_frame)  # Write the processed frame
+
+            for det in detections:
+                det['timestamp'] = timestamp  # Attach correct timestamp to each detection
 
             _, buffer = cv2.imencode('.jpg', annotated_frame)
             frame_base64 = base64.b64encode(buffer).decode('utf-8')
@@ -233,18 +241,46 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
                 'detections': detections,
                 'frame': frame_base64,
             }))
-            await asyncio.sleep(0.1)  # Simulate real-time frame rate
+            await asyncio.sleep(0.1)  # Maintain this to simulate real-time processing
 
         cap.release()
         out.release()
         await self.save_processed_video(uploaded_video_id, temp_file_path)
         await self.mark_video_as_analyzed(uploaded_video_id)
-
+        
         await self.send(text_data=json.dumps({
             'videoUploadId': uploaded_video_id,
             'status': 'completed',
-            'analyzed': True  # Indicate that the video has been analyzed
+            'analyzed': True
         }))
+
+    def get_video_duration(self, video_path):
+        cap = cv2.VideoCapture(video_path)
+        
+        if not cap.isOpened():
+            print("Error: Unable to open video file.")
+            return 0
+        
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        duration_seconds = total_frames / fps if fps else 0
+        
+        cap.release()
+        
+        return duration_seconds
+    
+    '''
+    def get_video_duration_ffprobe(self, video_path):
+        """Use ffprobe to get the video duration in seconds."""
+        try:
+            cmd = ["ffprobe", "-v", "error", "-show_entries", 
+                "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", video_path]
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            return float(result.stdout.strip())
+        except Exception as e:
+            print(f"Failed to get video duration with ffprobe: {str(e)}")
+            return 0
+    '''
 
     @database_sync_to_async
     def mark_video_as_analyzed(self, uploaded_video_id):

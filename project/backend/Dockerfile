@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y default-mysql-client
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
+    ffmpeg \
     build-essential \
     python3-dev \
     libffi-dev \

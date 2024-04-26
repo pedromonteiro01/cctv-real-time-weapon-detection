@@ -150,6 +150,7 @@ function VideoAnalysis() {
                     const detectionsWithFrames = data.detections.map(detection => ({
                         ...detection,
                         frame: data.frame,
+                        timestamp: detection.timestamp
                     }));
                     persistDetections(detectionsWithFrames);
                     setDetections((prevDetections) => [...prevDetections, ...detectionsWithFrames]);
@@ -214,6 +215,16 @@ function VideoAnalysis() {
         setShowModal(false);
     };
 
+    const formatTime = (seconds) => {
+        const pad = (num, size) => num.toString().padStart(size, '0');
+        const totalSeconds = Math.floor(seconds);
+        const minutes = Math.floor(totalSeconds / 60);
+        const remainingSeconds = totalSeconds % 60;
+        const milliseconds = Math.floor((seconds % 1) * 1000);
+    
+        return `${pad(minutes, 2)}:${pad(remainingSeconds, 2)}.${pad(milliseconds, 3)}`;
+    };
+
     const maxPage = Math.ceil(detections.length / itemsPerPage);
     const indexOfLastDetection = detections.length - ((currentPage - 1) * itemsPerPage);
     const indexOfFirstDetection = Math.max(indexOfLastDetection - itemsPerPage, 0);
@@ -257,6 +268,7 @@ function VideoAnalysis() {
                                 <th>Weapon Type</th>
                                 <th>Confidence</th>
                                 <th>Frame</th>
+                                <th>Timestamp (s)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -269,6 +281,7 @@ function VideoAnalysis() {
 
                                         </FaEye>
                                     </td>
+                                    <td>{formatTime(detection.timestamp)}</td>
                                 </tr>
                             ))}
                         </tbody>

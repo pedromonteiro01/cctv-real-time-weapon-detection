@@ -112,12 +112,14 @@ def upload_video_detections(request, video_id):
 
     if request.method == 'POST':
         detections_data = request.data.get('detections', [])
+        
         for detection_data in detections_data:
             UploadVideoDetections.objects.create(
                 uploaded_video=uploaded_video,
                 weapon_type=detection_data['label'],
                 confidence=detection_data['confidence'],
-                frame=detection_data.get('frame', '')  # Save the frame data if available
+                frame=detection_data.get('frame', ''),  # Save the frame data if available
+                timestamp=detection_data['timestamp']
             )
         return Response({"message": "Detections uploaded successfully."}, status=status.HTTP_201_CREATED)
 

@@ -82,6 +82,7 @@ class UploadVideoDetections(models.Model):
     confidence = models.FloatField()
     created_at = models.DateTimeField(auto_now_add=True)
     frame = models.TextField(blank=True, null=True)
+    timestamp = models.FloatField(default=0)
 
     def __str__(self):
-        return f"Video {self.uploaded_video.id} - Weapon Type: {self.weapon_type} with confidence {self.confidence}%"
+        return f"Video {self.uploaded_video.id} - Weapon Type: {self.weapon_type} with confidence {self.confidence}% at {self.timestamp} seconds"
