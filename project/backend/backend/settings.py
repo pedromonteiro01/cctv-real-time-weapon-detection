@@ -104,7 +104,7 @@ DATABASES = {
         'NAME': 'mydatabase',
         'USER': 'user',
         'PASSWORD': 'userpassword',
-        'HOST': 'mysql',  # Matches the service name in docker-compose.yml
+        'HOST': '127.0.0.1',  # Matches the service name in docker-compose.yml
         'PORT': '3306',
     }
 }

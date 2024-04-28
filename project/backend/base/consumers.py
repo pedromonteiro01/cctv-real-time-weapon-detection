@@ -35,7 +35,7 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
             await self.close(code=4404)
 
     async def create_rabbitmq_connection(self):
-        rabbitmq_server = 'rabbitmq'
+        rabbitmq_server = 'localhost'
         rabbitmq_username = 'user'
         rabbitmq_password = 'password'
         return await connect_robust(
@@ -125,7 +125,7 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
                 self.stream_threads.append(thread)
     
     def listen_to_rabbitmq(self, camera, loop):
-        rabbitmq_server = 'rabbitmq'
+        rabbitmq_server = 'localhost'
         rabbitmq_username = 'user'
         rabbitmq_password = 'password'
         credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
