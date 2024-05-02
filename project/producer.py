@@ -49,9 +49,9 @@ def main():
         '3': 2,  # Camera ID 3 belongs to User ID 2
     }
     camera_sources = {
-        '1': ['./media/guns.mp4'],  # Camera ID 1 video
-        '2': ['./media/guns4.mp4'],  # Camera ID 2 video
-        '3': ['./media/guns.mp4'],  # Camera ID 3 video
+        '1': ['./media/sample.mp4'],  # Camera ID 1 video
+        '2': ['./media/sample.mp4'],  # Camera ID 2 video
+        '3': ['./media/sample.mp4'],  # Camera ID 3 video
     }
 
     credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)

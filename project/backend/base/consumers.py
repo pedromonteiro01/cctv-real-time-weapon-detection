@@ -19,8 +19,10 @@ import os
 from django.core.files import File
 import subprocess
 
-model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best3.pt')
-
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print("\n\n device \n\n ", device)
+model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best3.pt').to(device)
+ 
 class VideoStreamConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.camera_id = self.scope['url_route']['kwargs']['camera_id']
@@ -74,21 +76,53 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
             except Exception as e:
                 print(f"Error sending frame to websocket: {e}")
 
+    def resize_frame(self, frame, size=640):
+        h, w, _ = frame.shape
+        scale = size / max(h, w)
+        nh, nw = int(h * scale), int(w * scale)
+        frame_resized = cv2.resize(frame, (nw, nh))
+
+        new_frame = np.full((size, size, 3), 128, dtype=np.uint8)
+        new_frame[(size - nh) // 2:(size - nh) // 2 + nh, (size - nw) // 2:(size - nw) // 2 + nw] = frame_resized
+        return new_frame
+
     def process_frame_with_yolo(self, frame):
-        results = model(frame)
-        detections = []
-        for *xyxy, conf, cls in results.xyxy[0]:
-            label = model.names[int(cls)]
-            bbox = [float(coord) for coord in xyxy]
-            confidence = float(conf)
-            detections.append({
-                "label": label,
-                "confidence": confidence,
-                "bbox": bbox
+        frame_resized = self.resize_frame(frame)
+        frame_tensor = torch.from_numpy(frame_resized).permute(2, 0, 1).float().div(255.0).unsqueeze(0).to(device)
+
+        results = model(frame_tensor)
+
+        confidence_threshold = 0.25
+        mask = results[:, :, 4] > confidence_threshold
+        filtered_results = results[mask]
+
+        parsed_detections = []
+        for result in filtered_results:
+            x_center, y_center, width, height, conf, *class_probs = result
+            class_probs_tensor = torch.tensor(class_probs)
+            class_id = torch.argmax(class_probs_tensor)
+            class_name = model.names[class_id.item()]
+
+            x1 = (x_center - width / 2).item()
+            y1 = (y_center - height / 2).item()
+            x2 = (x_center + width / 2).item()
+            y2 = (y_center + height / 2).item()
+
+            parsed_detections.append({
+                "label": class_name,
+                "confidence": conf.item(),
+                "bbox": [x1, y1, x2, y2]
             })
 
-        annotated_frame = results.render()[0]
-        return detections, annotated_frame
+        annotated_frame = self.draw_boxes(frame_resized, parsed_detections)
+        return parsed_detections, annotated_frame
+    
+    def draw_boxes(self, image, detections):
+        for det in detections:
+            bbox = det['bbox']
+            cv2.rectangle(image, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (255, 0, 0), 2)
+            cv2.putText(image, f"{det['label']} {det['confidence']:.2f}", (int(bbox[0]), int(bbox[1]-10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2)
+        return image
 
     @database_sync_to_async
     def get_camera_details(self, camera_id):
@@ -184,7 +218,6 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
 
         if self.uploaded_video_details:
             await self.accept()
-            # Process the video and stream results
             asyncio.get_event_loop().create_task(self.stream_video_analysis(self.uploaded_video_id))
         else:
             await self.close(code=4404)
@@ -223,15 +256,15 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
             if not ret:
                 break
 
-            # Retrieve the current timestamp of the frame being processed
             timestamp_msec = cap.get(cv2.CAP_PROP_POS_MSEC)
-            timestamp = timestamp_msec / 1000.0  # Convert milliseconds to seconds
+            timestamp = timestamp_msec / 1000.0 
 
+        
             detections, annotated_frame = self.process_frame_with_yolo(frame)
-            out.write(annotated_frame)  # Write the processed frame
+            out.write(annotated_frame) 
 
             for det in detections:
-                det['timestamp'] = timestamp  # Attach correct timestamp to each detection
+                det['timestamp'] = timestamp
 
             _, buffer = cv2.imencode('.jpg', annotated_frame)
             frame_base64 = base64.b64encode(buffer).decode('utf-8')
@@ -241,7 +274,7 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
                 'detections': detections,
                 'frame': frame_base64,
             }))
-            await asyncio.sleep(0.1)  # Maintain this to simulate real-time processing
+            await asyncio.sleep(0.1)
 
         cap.release()
         out.release()
@@ -292,22 +325,57 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
             print(f"Video {uploaded_video_id} marked as analyzed.")
         except UploadedVideo.DoesNotExist:
             print(f"Uploaded video with ID {uploaded_video_id} not found.")
+    
+    def resize_frame(self, frame, size=640):
+        h, w, _ = frame.shape
+        scale = size / max(h, w)
+        nh, nw = int(h * scale), int(w * scale)
+        frame_resized = cv2.resize(frame, (nw, nh))
+
+        new_frame = np.full((size, size, 3), 128, dtype=np.uint8)
+        new_frame[(size - nh) // 2:(size - nh) // 2 + nh, (size - nw) // 2:(size - nw) // 2 + nw] = frame_resized
+        return new_frame
+
 
     def process_frame_with_yolo(self, frame):
-        results = model(frame)
-        detections = []
-        for *xyxy, conf, cls in results.xyxy[0]:
-            label = model.names[int(cls)]
-            bbox = [float(coord) for coord in xyxy]
-            confidence = float(conf)
-            detections.append({
-                "label": label,
-                "confidence": confidence,
-                "bbox": bbox
+        frame_resized = self.resize_frame(frame)
+        frame_tensor = torch.from_numpy(frame_resized).permute(2, 0, 1).float().div(255.0).unsqueeze(0).to(device)
+
+        results = model(frame_tensor)
+
+        confidence_threshold = 0.25
+        mask = results[:, :, 4] > confidence_threshold
+        results = results[mask]
+
+        parsed_detections = []
+        for result in results:
+            x_center, y_center, width, height, conf, *class_probs = result
+            class_probs_tensor = torch.tensor(class_probs)
+            class_id = torch.argmax(class_probs_tensor)
+            class_name = model.names[class_id.item()]
+
+            x1 = (x_center - width / 2).item()
+            y1 = (y_center - height / 2).item()
+            x2 = (x_center + width / 2).item()
+            y2 = (y_center + height / 2).item()
+
+            parsed_detections.append({
+                "label": class_name,
+                "confidence": conf.item(),
+                "bbox": [x1, y1, x2, y2]
             })
-        
-        annotated_frame = results.render()[0]
-        return detections, annotated_frame
+
+        annotated_frame = self.draw_boxes(frame_resized, parsed_detections) 
+
+        return parsed_detections, annotated_frame
+
+
+    def draw_boxes(self, image, detections):
+        for det in detections:
+            bbox = det['bbox']
+            cv2.rectangle(image, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (255, 0, 0), 2)
+            cv2.putText(image, f"{det['label']} {det['confidence']:.2f}", (int(bbox[0]), int(bbox[1]-10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2)
+        return image
 
     @database_sync_to_async
     def save_processed_video(self, uploaded_video_id, video_path):
@@ -316,7 +384,7 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
             uploaded_video = UploadedVideo.objects.get(id=uploaded_video_id)
             with open(video_path, 'rb') as f:
                 uploaded_video.processed_video.save(f"{uploaded_video_id}_processed.mp4", File(f))
-            os.remove(video_path)  # Clean up the temporary file
+            os.remove(video_path)
             print(f"Processed video for {uploaded_video_id} saved successfully.")
         except UploadedVideo.DoesNotExist:
             print(f"Uploaded video with ID {uploaded_video_id} not found.")
