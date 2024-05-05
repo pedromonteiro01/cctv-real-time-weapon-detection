@@ -75,6 +75,9 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
                 }))
             except Exception as e:
                 print(f"Error sending frame to websocket: {e}")
+            finally:
+                # release GPU memory after sending frame
+                torch.cuda.empty_cache()
 
     def resize_frame(self, frame, size=640):
         h, w, _ = frame.shape
