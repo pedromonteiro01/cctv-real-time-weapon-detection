@@ -53,16 +53,27 @@ const DetectionFrame = ({ onWeaponDetected }) => {
         
             if (data.frame) {
                 const context = canvasRef.current.getContext('2d');
+                const blob = base64ToBlob(data.frame, 'image/jpeg');
                 const image = new Image();
                 image.onload = () => {
                     context.drawImage(image, 0, 0, canvasRef.current.width, canvasRef.current.height);
                 };
-                image.src = `data:image/jpeg;base64,${data.frame}`;
+                image.src = URL.createObjectURL(blob);
             }
         };
 
         return () => ws.close();
     }, [cameraId]);
+
+    const base64ToBlob = (base64, mime) => {
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        return new Blob([byteArray], { type: mime });
+    }
 
 
     const toggleExpandVideo = () => {
