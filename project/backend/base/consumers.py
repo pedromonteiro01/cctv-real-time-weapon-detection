@@ -21,7 +21,7 @@ import subprocess
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("\n\n device \n\n ", device)
-model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best3.pt').to(device)
+model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best.pt').to(device)
  
 class VideoStreamConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -90,35 +90,20 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
         return new_frame
 
     def process_frame_with_yolo(self, frame):
-        frame_resized = self.resize_frame(frame)
-        frame_tensor = torch.from_numpy(frame_resized).permute(2, 0, 1).float().div(255.0).unsqueeze(0).to(device)
-
-        results = model(frame_tensor)
-
-        confidence_threshold = 0.25
-        mask = results[:, :, 4] > confidence_threshold
-        filtered_results = results[mask]
-
-        parsed_detections = []
-        for result in filtered_results:
-            x_center, y_center, width, height, conf, *class_probs = result
-            class_probs_tensor = torch.tensor(class_probs)
-            class_id = torch.argmax(class_probs_tensor)
-            class_name = model.names[class_id.item()]
-
-            x1 = (x_center - width / 2).item()
-            y1 = (y_center - height / 2).item()
-            x2 = (x_center + width / 2).item()
-            y2 = (y_center + height / 2).item()
-
-            parsed_detections.append({
-                "label": class_name,
-                "confidence": conf.item(),
-                "bbox": [x1, y1, x2, y2]
+        results = model(frame)
+        detections = []
+        for *xyxy, conf, cls in results.xyxy[0]:
+            label = model.names[int(cls)]
+            bbox = [float(coord) for coord in xyxy]
+            confidence = float(conf)
+            detections.append({
+                "label": label,
+                "confidence": confidence,
+                "bbox": bbox
             })
-
-        annotated_frame = self.draw_boxes(frame_resized, parsed_detections)
-        return parsed_detections, annotated_frame
+        
+        annotated_frame = results.render()[0]
+        return detections, annotated_frame
     
     def draw_boxes(self, image, detections):
         for det in detections:
@@ -232,6 +217,7 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
         total_duration = self.get_video_duration(video_path)
         print(f"Total video duration: {total_duration} seconds")
         cap = cv2.VideoCapture(video_path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
 
         # total_duration = self.get_video_duration_ffprobe(video_path)
         # print(f"Total video duration using ffprobe: {total_duration} seconds")
@@ -254,15 +240,15 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
             print("Error: Unable to open video source.")
             return
 
+        frame_count = 0
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
                 break
 
-            timestamp_msec = cap.get(cv2.CAP_PROP_POS_MSEC)
-            timestamp = timestamp_msec / 1000.0 
-
-        
+            timestamp = frame_count / fps
+            frame_count += 1
+            print(f"timestamp {timestamp} frame count {frame_count}")
             detections, annotated_frame = self.process_frame_with_yolo(frame)
             out.write(annotated_frame) 
 
@@ -278,12 +264,11 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
                 'frame': frame_base64,
             }))
             await asyncio.sleep(0.1)
-
+    
         cap.release()
         out.release()
         await self.save_processed_video(uploaded_video_id, temp_file_path)
         await self.mark_video_as_analyzed(uploaded_video_id)
-        
         await self.send(text_data=json.dumps({
             'videoUploadId': uploaded_video_id,
             'status': 'completed',
@@ -304,19 +289,6 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
         cap.release()
         
         return duration_seconds
-    
-    '''
-    def get_video_duration_ffprobe(self, video_path):
-        """Use ffprobe to get the video duration in seconds."""
-        try:
-            cmd = ["ffprobe", "-v", "error", "-show_entries", 
-                "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", video_path]
-            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            return float(result.stdout.strip())
-        except Exception as e:
-            print(f"Failed to get video duration with ffprobe: {str(e)}")
-            return 0
-    '''
 
     @database_sync_to_async
     def mark_video_as_analyzed(self, uploaded_video_id):
@@ -341,36 +313,20 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
 
 
     def process_frame_with_yolo(self, frame):
-        frame_resized = self.resize_frame(frame)
-        frame_tensor = torch.from_numpy(frame_resized).permute(2, 0, 1).float().div(255.0).unsqueeze(0).to(device)
-
-        results = model(frame_tensor)
-
-        confidence_threshold = 0.25
-        mask = results[:, :, 4] > confidence_threshold
-        results = results[mask]
-
-        parsed_detections = []
-        for result in results:
-            x_center, y_center, width, height, conf, *class_probs = result
-            class_probs_tensor = torch.tensor(class_probs)
-            class_id = torch.argmax(class_probs_tensor)
-            class_name = model.names[class_id.item()]
-
-            x1 = (x_center - width / 2).item()
-            y1 = (y_center - height / 2).item()
-            x2 = (x_center + width / 2).item()
-            y2 = (y_center + height / 2).item()
-
-            parsed_detections.append({
-                "label": class_name,
-                "confidence": conf.item(),
-                "bbox": [x1, y1, x2, y2]
+        results = model(frame)
+        detections = []
+        for *xyxy, conf, cls in results.xyxy[0]:
+            label = model.names[int(cls)]
+            bbox = [float(coord) for coord in xyxy]
+            confidence = float(conf)
+            detections.append({
+                "label": label,
+                "confidence": confidence,
+                "bbox": bbox
             })
-
-        annotated_frame = self.draw_boxes(frame_resized, parsed_detections) 
-
-        return parsed_detections, annotated_frame
+        
+        annotated_frame = results.render()[0]
+        return detections, annotated_frame
 
 
     def draw_boxes(self, image, detections):

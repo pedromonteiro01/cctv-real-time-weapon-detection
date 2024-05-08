@@ -12,24 +12,22 @@ def setup_virtual_env():
         print("Creating virtual environment...")
         subprocess.run(['python3', '-m', 'venv', 'venv'], check=True)
 
-    # Check if pip executable exists
-    if not os.path.exists(pip_executable):
-        print(f"Error: pip not found at {pip_executable}. Ensure virtual environment was created correctly.")
-        return
-
+    # Install dependencies
     print("Installing dependencies...")
     subprocess.run([pip_executable, 'install', '--upgrade', 'pip'], check=True)
     subprocess.run([pip_executable, 'install', '-r', 'requirements.txt'], check=True)
 
 def run_backend_commands():
-    """Runs Django management commands and starts the Uvicorn server."""
+    """Runs Django management commands and starts the Uvicorn server with WhiteNoise."""
     venv_path = os.path.join('venv', 'bin')
     python_executable = os.path.join(venv_path, 'python3')
 
+    # Django management commands
     print("Running Django management commands...")
-    subprocess.run([python_executable, 'manage.py', 'custom_migrate'], check=True)
-    subprocess.run([python_executable, 'manage.py', 'populate_db'], check=True)
+    subprocess.run([python_executable, 'manage.py', 'collectstatic', '--noinput'], check=True)
+    subprocess.run([python_executable, 'manage.py', 'migrate'], check=True)
 
+    # Start Uvicorn with static file handling via WhiteNoise
     print("Starting the Uvicorn server...")
     subprocess.run([python_executable, '-m', 'uvicorn', 'backend.asgi:application', '--host', '0.0.0.0', '--reload'], check=True)
 

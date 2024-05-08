@@ -16,3 +16,5 @@ ultralytics==8.2.4
 setuptools>=65.5.1
 torchvision
 wheel>=0.38.0
+drf-yasg
+whitenoise

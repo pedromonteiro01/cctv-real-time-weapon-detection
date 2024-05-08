@@ -69,7 +69,7 @@ class Detection(models.Model):
 class UploadedVideo(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     video = models.FileField(upload_to='uploaded_videos/')
-    processed_video = models.FileField(upload_to='processed_videos/', null=True, blank=True)  # New field
+    processed_video = models.FileField(upload_to='processed_videos/', null=True, blank=True)
     analyzed = models.BooleanField(default=False)
 
     def __str__(self):

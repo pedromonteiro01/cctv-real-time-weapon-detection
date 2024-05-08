@@ -14,11 +14,13 @@ from .serializers import DetectionSerializer
 from django.core.serializers import serialize
 from rest_framework.decorators import api_view, permission_classes
 from django.shortcuts import get_object_or_404
-from .serializers import UploadedVideoSerializer
+from .serializers import UploadedVideoSerializer, UploadVideoDetectionsSerializer
 from django.http import Http404
 from django.http import FileResponse
 from django.core.exceptions import ObjectDoesNotExist
+from drf_yasg.utils import swagger_auto_schema
 
+@swagger_auto_schema(method='post', operation_summary="User Login")  
 @api_view(['POST'])
 def login_view(request):
     username = request.data.get('username')
@@ -33,7 +35,12 @@ def login_view(request):
         }, status=status.HTTP_200_OK)
     else:
         return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+    
 
+@swagger_auto_schema(method='get', operation_summary="Get all Detections",
+                     operation_description="Lists all detections for authenticated user's cameras.",
+                     responses={200: DetectionSerializer(many=True)})
+@swagger_auto_schema(method='post', operation_summary="Post Detections")
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def detection_list_create(request, camera_id=None):
@@ -58,7 +65,10 @@ def detection_list_create(request, camera_id=None):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+
+@swagger_auto_schema(method='post', operation_summary="Upload Video",
+                     operation_description="Uploads a video and saves it.",
+                     responses={201: UploadedVideoSerializer})   
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def upload_video(request):
@@ -68,13 +78,13 @@ def upload_video(request):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     else:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
+@swagger_auto_schema(method='get', operation_summary="Get uploaded video details")  
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def uploaded_videos_list(request, video_id=None):
     if video_id:
         try:
-            # Fetch details of a specific video if video_id is provided
             uploaded_video = UploadedVideo.objects.get(user=request.user, id=video_id)
             video_details = {
                 'id': uploaded_video.id,
@@ -89,18 +99,26 @@ def uploaded_videos_list(request, video_id=None):
         # List all uploaded videos for the user if no video_id is provided
         uploaded_videos = UploadedVideo.objects.filter(user=request.user).values('id', 'video', 'analyzed')
         return JsonResponse(list(uploaded_videos), safe=False)
-    
-@api_view(['POST'])
+
+@swagger_auto_schema(method='delete', operation_summary="Delete Video Detections",
+                     operation_description="Deletes all detections associated with a video.",
+                     responses={204: 'Detections deleted successfully.'})
+@api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_video_detections(request, video_id):
     try:
-        from .models import UploadVideoDetections
         video = UploadedVideo.objects.get(id=video_id, user=request.user)
-        UploadVideoDetections.objects.filter(uploaded_video=video).delete()
-        return Response({"message": "Detections deleted successfully."})
+        video.video_detections.all().delete()  # Correct related_name used here
+        return Response({"message": "Detections deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
     except UploadedVideo.DoesNotExist:
-        return Response({"error": "Video not found."}, status=404)
+        return Response({"error": "Video not found."}, status=status.HTTP_404_NOT_FOUND)
 
+@swagger_auto_schema(methods=['post'], operation_summary="Upload Video Detections",
+                     operation_description="Uploads detections for a specific video.",
+                     responses={201: 'Detections uploaded successfully.'})
+@swagger_auto_schema(methods=['get'], operation_summary="List Video Detections",
+                     operation_description="Lists all detections for a specific video.",
+                     responses={200: UploadVideoDetectionsSerializer(many=True)})
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def upload_video_detections(request, video_id):
