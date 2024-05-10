@@ -62,12 +62,14 @@ function LoginForm() {
                 <Input
                     type="text"
                     value={username}
+                    name="username"
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Username"
                 />
                 <Input
                     type="password"
                     value={password}
+                    name="password"
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Password"
                 />
