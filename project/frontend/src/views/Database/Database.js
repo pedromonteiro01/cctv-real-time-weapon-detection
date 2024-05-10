@@ -6,32 +6,20 @@ import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
 import { useAuth } from '../../context/AuthContext/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-const CameraStream = React.memo(({ camera, frameSrc }) => {
-    const canvasRef = useRef(null);
+const CameraStream = ({ camera, frameSrc }) => {
     const navigate = useNavigate();
 
-    useEffect(() => {
-        if (canvasRef.current && frameSrc) {
-            const canvas = canvasRef.current;
-            const context = canvas.getContext('2d');
-            const image = new Image();
-            image.onload = () => {
-                context.clearRect(0, 0, canvas.width, canvas.height);
-                context.drawImage(image, 0, 0, canvas.width, canvas.height);
-            };
-            image.src = frameSrc;
-        }
-    }, [frameSrc]);
+    const handleCameraClick = () => {
+        navigate(`/camera/${camera.id}`);
+    };
 
     return (
-        <div className="database-image" onClick={() => navigate(`/camera/${camera.id}`)} style={{ cursor: 'pointer' }}>
+        <div className="database-image" onClick={handleCameraClick} style={{ cursor: 'pointer' }}>
             <TopFrameOverlay {...camera} />
-            <canvas ref={canvasRef} width="640" height="480" style={{ width: '100%', height: 'auto' }}></canvas>
+            <img src={frameSrc} alt={`Camera ${camera.id}`} style={{ width: '100%', height: 'auto' }} />
         </div>
     );
-}, (prevProps, nextProps) => {
-    return prevProps.frameSrc === nextProps.frameSrc && prevProps.camera.id === nextProps.camera.id;
-});
+};
 
 const Database = () => {
     const [cameras, setCameras] = useState({});

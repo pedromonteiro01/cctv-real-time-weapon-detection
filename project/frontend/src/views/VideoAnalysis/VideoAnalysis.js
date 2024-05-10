@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import './VideoAnalysis.css';
 import { useAuth } from '../../context/AuthContext/AuthContext';
-import Modal from '../DetectionHistory/Modal';
 import { FaEye, FaDownload } from "react-icons/fa";
+import Modal from '../../components/Modal/Modal';
 
 function VideoAnalysis() {
     const { videoId } = useParams();

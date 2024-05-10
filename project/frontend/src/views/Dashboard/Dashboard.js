@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import './Dashboard.css';
-import RecordTable from './Table/Table';
 import DetectionFrame from './VideoFrames/DetectionFrame';
 import warning from './warning.png';
 import { useAuth } from '../../context/AuthContext/AuthContext';
+import RecordTable from '../../components/Table/Table';
 
 const Dashboard = () => {
     const [isAlert, setIsAlert] = useState(false);

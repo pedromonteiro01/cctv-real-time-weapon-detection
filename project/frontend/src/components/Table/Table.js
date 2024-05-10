@@ -1,38 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import './RecordTable.css';
-import { useAuth } from '../../../context/AuthContext/AuthContext';
+import { useAuth } from '../../context/AuthContext/AuthContext';
 import { useParams } from 'react-router-dom'; 
-
-
-const TableHeader = () => {
-  return (
-    <thead>
-      <tr>
-        <th>No.</th>
-        <th>Camera</th>
-        <th>Weapon Type</th>
-        <th>Date</th>
-        <th>Time</th>
-        <th>Site</th>
-        <th>Confidence</th>
-      </tr>
-    </thead>
-  );
-};
-
-const TableRow = ({ record }) => {
-  return (
-    <tr>
-      <td>{record.no}</td>
-      <td>{record.camera}</td>
-      <td>{record.weapon_type}</td>
-      <td>{record.date}</td>
-      <td>{record.time}</td>
-      <td>{record.site}</td>
-      <td>{record.confidence}%</td>
-    </tr>
-  );
-};
+import TableHeader from './TableHeader';
+import TableRow from './TableRow';
 
 const RecordTable = ({ records, setRecords }) => {
   const recordsPerPage = 3;

@@ -14,14 +14,6 @@
     gap: 2rem;
 }
 
-.login-form-wrapper input {
-    background-color: #3f3b3b;
-    color: #fff;
-    outline: none;
-    border: none;
-    padding: 0.5rem 0.8rem;
-}
-
 .login-form-wrapper button {
     padding: 0.8rem 0.5rem;
     background-color: #fff;

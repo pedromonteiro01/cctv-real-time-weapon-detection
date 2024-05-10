@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext/AuthContext';
-import Modal from './Modal';
 import './DetectionHistory.css';
 import { FaEye } from "react-icons/fa";
 import { ClipLoader } from 'react-spinners';
+import Modal from '../../components/Modal/Modal';
 
 const DetectionHistory = () => {
     const [detections, setDetections] = useState([]);
-    const [isLoading, setIsLoading] = useState(false); // State to manage loading status
+    const [isLoading, setIsLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [selectedFrame, setSelectedFrame] = useState('');
     const { authToken } = useAuth();
 
     useEffect(() => {
-        setIsLoading(true); // Set loading to true at the start of the fetch
+        setIsLoading(true);
         fetch('http://localhost:8000/api/detections/', {
             headers: { 'Authorization': `Token ${authToken}` }
         })
@@ -27,11 +27,11 @@ const DetectionHistory = () => {
             .then(data => {
                 console.log("data: ", data);
                 setDetections(data.map((detection, index) => ({ ...detection, no: index + 1 })));
-                setIsLoading(false); // Set loading to false after the data is fetched
+                setIsLoading(false);
             })
             .catch((error) => {
                 console.error('Error fetching detections:', error);
-                setIsLoading(false); // Ensure loading is set to false even if there is an error
+                setIsLoading(false);
             });
     }, [authToken]);
 
