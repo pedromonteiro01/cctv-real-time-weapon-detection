@@ -25,7 +25,8 @@ def run_backend_commands():
     # Django management commands
     print("Running Django management commands...")
     subprocess.run([python_executable, 'manage.py', 'collectstatic', '--noinput'], check=True)
-    subprocess.run([python_executable, 'manage.py', 'migrate'], check=True)
+    subprocess.run([python_executable, 'manage.py', 'custom_migrate'], check=True)
+    subprocess.run([python_executable, 'manage.py', 'populate_db'], check=True)
 
     # Start Uvicorn with static file handling via WhiteNoise
     print("Starting the Uvicorn server...")

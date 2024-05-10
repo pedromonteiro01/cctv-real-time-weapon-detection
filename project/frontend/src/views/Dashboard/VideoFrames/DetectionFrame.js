@@ -75,7 +75,6 @@ const DetectionFrame = ({ onWeaponDetected }) => {
         return new Blob([byteArray], { type: mime });
     }
 
-
     const toggleExpandVideo = () => {
         setIsExpanded(!isExpanded);
     };

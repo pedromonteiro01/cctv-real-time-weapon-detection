@@ -23,24 +23,35 @@ function VideoAnalysis() {
                 'Authorization': `Token ${authToken}`,
             },
         })
-        .then(response => response.json())
-        .then(data => {
-            setIsAnalyzed(data.analyzed);
-            if (!data.analyzed) {
-                fetch(`http://localhost:8000/api/delete_detections/${videoId}/`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Token ${authToken}`,
-                    },
-                })
-                .then(res => res.json())
-                .then(result => console.log(result.message))
-                .catch(error => console.error('Error deleting detections:', error));
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching video details:', error);
-        });
+            .then(response => response.json())
+            .then(data => {
+                setIsAnalyzed(data.analyzed);
+                if (!data.analyzed) {
+                    fetch(`http://localhost:8000/api/detections/${videoId}/delete/`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Token ${authToken}`,
+                        },
+                    })
+                        .then(response => {
+                            if (!response.ok) throw new Error('Network response was not ok.');
+                            if (response.status === 204) {
+                                console.log('Detections deleted successfully');
+                                return null;
+                            } else {
+                                return response.json();
+                            }
+                        })
+                        .then(result => {
+                            if (result) console.log('Detections deleted:', result.message);
+                        })
+                        .catch(error => console.error('Error deleting detections:', error));
+
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching video details:', error);
+            });
     }, []);
 
     useEffect(() => {
@@ -166,7 +177,7 @@ function VideoAnalysis() {
                 ws.close();
             };
         }
-    }, [isAnalyzed, videoId]); // Now depends on isAnalyzed and videoId.
+    }, [isAnalyzed, videoId]);
 
     const fetchVideoDetails = () => {
         fetch(`http://localhost:8000/api/uploaded_videos/${videoId}/`, {
@@ -221,7 +232,7 @@ function VideoAnalysis() {
         const minutes = Math.floor(totalSeconds / 60);
         const remainingSeconds = totalSeconds % 60;
         const milliseconds = Math.floor((seconds % 1) * 1000);
-    
+
         return `${pad(minutes, 2)}:${pad(remainingSeconds, 2)}.${pad(milliseconds, 3)}`;
     };
 
@@ -268,7 +279,7 @@ function VideoAnalysis() {
                                 <th>Weapon Type</th>
                                 <th>Confidence</th>
                                 <th>Frame</th>
-                                <th>Timestamp (s)</th>
+                                <th>Timestamp</th>
                             </tr>
                         </thead>
                         <tbody>

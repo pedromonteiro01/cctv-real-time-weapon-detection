@@ -20,7 +20,7 @@ function VideoUpload() {
         })
             .then(response => response.json())
             .then(data => {
-                console.log("data: ", data); // Log the data to inspect its structure
+                console.log("data: ", data);
                 setVideos(data);
             })
             .catch(error => {
@@ -42,7 +42,7 @@ function VideoUpload() {
         const formData = new FormData();
         formData.append('video', video);
 
-        fetch('http://localhost:8000/api/upload_video/', {
+        fetch('http://localhost:8000/api/uploaded_videos/upload_video/', {
             method: 'POST',
             body: formData,
             headers: {
