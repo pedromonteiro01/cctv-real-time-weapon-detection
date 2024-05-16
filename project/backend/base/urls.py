@@ -1,5 +1,5 @@
 # base/urls.py
-from django.urls import path
+from django.urls import path, include
 from .views import (
     detection_list_create, login_view, CurrentUserView, upload_video,
     list_uploaded_videos, upload_video_detections, download_processed_video,
@@ -29,6 +29,7 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
+    path('silk/', include('silk.urls', namespace='silk')),
     path('user/login/', login_view, name='login'),
     path('user/', CurrentUserView.as_view(), name='current-user'),
     path('detections/', detection_list_create, name='detections'),

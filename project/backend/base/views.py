@@ -19,9 +19,11 @@ from django.http import Http404
 from django.http import FileResponse
 from django.core.exceptions import ObjectDoesNotExist
 from drf_yasg.utils import swagger_auto_schema
+from silk.profiling.profiler import silk_profile
 
 @swagger_auto_schema(method='post', operation_summary="User Login")  
 @api_view(['POST'])
+@silk_profile(name='Login View Profiling')
 def login_view(request):
     username = request.data.get('username')
     password = request.data.get('password')
@@ -41,6 +43,7 @@ def login_view(request):
 @swagger_auto_schema(methods=['get'], operation_summary="Get All Detections")
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
+@silk_profile(name='Detection List/Create Profiling')
 def detection_list_create(request):
     if request.method == 'GET':
         user_cameras = request.user.cameras.all()
@@ -79,6 +82,7 @@ def camera_specific_detections(request, camera_id):
                      responses={201: UploadedVideoSerializer})   
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@silk_profile(name='Upload Video Profiling')
 def upload_video(request):
     serializer = UploadedVideoSerializer(data=request.data, context={'request': request})
     if serializer.is_valid():

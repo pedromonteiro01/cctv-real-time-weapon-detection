@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'drf_yasg',
+    'silk',
 ]
 
 REST_FRAMEWORK = {
@@ -61,7 +62,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware'
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'silk.middleware.SilkyMiddleware',
 ]
 
 CSRF_TRUSTED_ORIGINS = ['http://localhost:3000','https://*.127.0.0.1']
@@ -106,8 +108,11 @@ DATABASES = {
         'NAME': 'mydatabase',
         'USER': 'user',
         'PASSWORD': 'userpassword',
-        'HOST': '127.0.0.1',  # Matches the service name in docker-compose.yml
+        'HOST': '127.0.0.1',
         'PORT': '3306',
+        'TEST': {
+            'NAME': 'test_db',
+        },
     }
 }
 
