@@ -8,6 +8,7 @@ import cv2
 from uvicorn.protocols.utils import ClientDisconnected
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
+from aio_pika import connect_robust
 import pika
 from asgiref.sync import sync_to_async
 import threading
@@ -16,15 +17,13 @@ import numpy as np
 import tempfile
 import os
 from django.core.files import File
+import subprocess
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best2.pt').to(device)
-
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print("\n\n device \n\n ", device)
+model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best.pt').to(device)
+ 
 class VideoStreamConsumer(AsyncWebsocketConsumer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.connection_open = False
-
     async def connect(self):
         self.camera_id = self.scope['url_route']['kwargs']['camera_id']
         self.camera_details = await self.get_camera_details(self.camera_id)
@@ -32,68 +31,66 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
         if self.camera_details:
             await self.accept()
             self.connection_open = True
-            loop = asyncio.get_running_loop()
-            thread = threading.Thread(target=self.listen_to_rabbitmq, args=(self.camera_id, loop))
-            thread.start()
+            self.connection = await self.create_rabbitmq_connection()
+            asyncio.create_task(self.listen_to_rabbitmq(self.camera_id))
         else:
             await self.close(code=4404)
 
-    def listen_to_rabbitmq(self, camera_id, loop):
-        rabbitmq_server = 'rabbitmq'
+    async def create_rabbitmq_connection(self):
+        rabbitmq_server = 'localhost'
         rabbitmq_username = 'user'
         rabbitmq_password = 'password'
-        credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
-        connection_parameters = pika.ConnectionParameters(host=rabbitmq_server, credentials=credentials)
-        
-        connection = pika.BlockingConnection(connection_parameters)
-        channel = connection.channel()
+        return await connect_robust(
+            f"amqp://{rabbitmq_username}:{rabbitmq_password}@{rabbitmq_server}/"
+        )
 
-        queue_name = f"camera_stream_{camera_id}"
-        channel.queue_declare(queue=queue_name, durable=True)
+    async def listen_to_rabbitmq(self, camera_id):
+        async with self.connection:
+            channel = await self.connection.channel()
+            queue_name = f"camera_stream_{camera_id}"
+            queue = await channel.declare_queue(queue_name, durable=True)
 
-        def callback(ch, method, properties, body):
-            message = json.loads(body)
-            frame_data = base64.b64decode(message['frame'])
-            frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
-            
-            detections, annotated_frame = self.process_frame_with_yolo(frame)
-            
-            _, buffer = cv2.imencode('.jpg', annotated_frame)
-            frame_base64 = base64.b64encode(buffer).decode('utf-8')
+            async for message in queue:
+                async with message.process():
+                    frame_data = base64.b64decode(json.loads(message.body.decode())['frame'])
+                    frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
 
-            asyncio.run_coroutine_threadsafe(
-                self.send_frame_to_websocket(detections, frame_base64, camera_id),
-                loop
-            )
+                    detections, annotated_frame = self.process_frame_with_yolo(frame)
 
-        channel.basic_consume(queue=queue_name, on_message_callback=callback, auto_ack=True)
-        channel.start_consuming()
+                    _, buffer = cv2.imencode('.jpg', annotated_frame)
+                    frame_base64 = base64.b64encode(buffer).decode('utf-8')
+
+                    await self.send_frame_to_websocket(detections, frame_base64, camera_id)
 
     async def send_frame_to_websocket(self, detections, frame_base64, camera_id):
-        camera_details = await self.get_camera_details(camera_id)
-        if camera_details:
-            if self.connection_open:
-                try:
-                    await self.send(text_data=json.dumps({
-                        'camera_id': camera_details['id'],
-                        'location': camera_details['location'],
-                        'day': datetime.now().strftime('%d/%m/%Y'),
-                        'hour': datetime.now().strftime('%H:%M:%S'),
-                        'detections': detections,
-                        'frame': frame_base64,
-                    }))
-                except Exception as e:
-                    print(f"Error sending frame to websocket: {e}")
+        if self.camera_details and self.connection_open:
+            try:
+                await self.send(text_data=json.dumps({
+                    'camera_id': self.camera_details['id'],
+                    'location': self.camera_details['location'],
+                    'day': datetime.now().strftime('%d/%m/%Y'),
+                    'hour': datetime.now().strftime('%H:%M:%S'),
+                    'detections': detections,
+                    'frame': frame_base64,
+                }))
+            except Exception as e:
+                print(f"Error sending frame to websocket: {e}")
+            finally:
+                # release GPU memory after sending frame
+                torch.cuda.empty_cache()
+
+    def resize_frame(self, frame, size=640):
+        h, w, _ = frame.shape
+        scale = size / max(h, w)
+        nh, nw = int(h * scale), int(w * scale)
+        frame_resized = cv2.resize(frame, (nw, nh))
+
+        new_frame = np.full((size, size, 3), 128, dtype=np.uint8)
+        new_frame[(size - nh) // 2:(size - nh) // 2 + nh, (size - nw) // 2:(size - nw) // 2 + nw] = frame_resized
+        return new_frame
 
     def process_frame_with_yolo(self, frame):
-        # Convert frame to a format suitable for the model
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        frame = torch.from_numpy(frame).to(device).float() / 255.0  # Normalize and transfer to device
-        frame = frame.permute(2, 0, 1).unsqueeze(0)  # Add batch dimension and channel-first format
-
-        # Perform inference
         results = model(frame)
-
         detections = []
         for *xyxy, conf, cls in results.xyxy[0]:
             label = model.names[int(cls)]
@@ -104,10 +101,16 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
                 "confidence": confidence,
                 "bbox": bbox
             })
-
-        # Convert result tensor to image
-        annotated_frame = results.render()[0].permute(1, 2, 0).cpu().numpy()  # Channel-last and back to CPU
+        
+        annotated_frame = results.render()[0]
         return detections, annotated_frame
+    
+    def draw_boxes(self, image, detections):
+        for det in detections:
+            bbox = det['bbox']
+            cv2.rectangle(image, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (255, 0, 0), 2)
+            cv2.putText(image, f"{det['label']} {det['confidence']:.2f}", (int(bbox[0]), int(bbox[1]-10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2)
+        return image
 
     @database_sync_to_async
     def get_camera_details(self, camera_id):
@@ -119,6 +122,8 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
             return None
 
     async def disconnect(self, close_code):
+        if hasattr(self, 'connection') and self.connection:
+            await self.connection.close()
         self.connection_open = False
 
 class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
@@ -142,7 +147,7 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
                 self.stream_threads.append(thread)
     
     def listen_to_rabbitmq(self, camera, loop):
-        rabbitmq_server = 'rabbitmq'
+        rabbitmq_server = 'localhost'
         rabbitmq_username = 'user'
         rabbitmq_password = 'password'
         credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
@@ -201,45 +206,54 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
 
         if self.uploaded_video_details:
             await self.accept()
-            # Process the video and stream results
             asyncio.get_event_loop().create_task(self.stream_video_analysis(self.uploaded_video_id))
         else:
             await self.close(code=4404)
 
     async def stream_video_analysis(self, uploaded_video_id):
         video_details = await self.get_uploaded_video_details(uploaded_video_id)
+
         video_path = video_details['video_path']
+        total_duration = self.get_video_duration(video_path)
+        print(f"Total video duration: {total_duration} seconds")
         cap = cv2.VideoCapture(video_path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
 
-        # Verify if the video capture has been successfully opened
-        if not cap.isOpened():
-            print("Error: Unable to open video source.")
-            return
+        # total_duration = self.get_video_duration_ffprobe(video_path)
+        # print(f"Total video duration using ffprobe: {total_duration} seconds")
 
-        # Read the first frame to get video properties
         ret, frame = cap.read()
         if not ret:
             print("Error: Unable to read video frame.")
             cap.release()
             return
 
-        # Get dimensions of the first frame for VideoWriter initialization
         height, width = frame.shape[:2]
-        
+
         # Define the codec and create VideoWriter object with dynamic dimensions
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         temp_file_path = os.path.join(tempfile.gettempdir(), f"{uploaded_video_id}_processed.mp4")
         out = cv2.VideoWriter(temp_file_path, fourcc, 20.0, (width, height))
 
-        # Reinitialize the video capture to start from the first frame
-        cap = cv2.VideoCapture(video_path)
-        
+
+        if not cap.isOpened():
+            print("Error: Unable to open video source.")
+            return
+
+        frame_count = 0
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
                 break
+
+            timestamp = frame_count / fps
+            frame_count += 1
+            print(f"timestamp {timestamp} frame count {frame_count}")
             detections, annotated_frame = self.process_frame_with_yolo(frame)
-            out.write(annotated_frame)  # Write the processed frame
+            out.write(annotated_frame) 
+
+            for det in detections:
+                det['timestamp'] = timestamp
 
             _, buffer = cv2.imencode('.jpg', annotated_frame)
             frame_base64 = base64.b64encode(buffer).decode('utf-8')
@@ -249,18 +263,32 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
                 'detections': detections,
                 'frame': frame_base64,
             }))
-            await asyncio.sleep(0.1)  # Simulate real-time frame rate
-
+            await asyncio.sleep(0.1)
+    
         cap.release()
         out.release()
         await self.save_processed_video(uploaded_video_id, temp_file_path)
         await self.mark_video_as_analyzed(uploaded_video_id)
-
         await self.send(text_data=json.dumps({
             'videoUploadId': uploaded_video_id,
             'status': 'completed',
-            'analyzed': True  # Indicate that the video has been analyzed
+            'analyzed': True
         }))
+
+    def get_video_duration(self, video_path):
+        cap = cv2.VideoCapture(video_path)
+        
+        if not cap.isOpened():
+            print("Error: Unable to open video file.")
+            return 0
+        
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        duration_seconds = total_frames / fps if fps else 0
+        
+        cap.release()
+        
+        return duration_seconds
 
     @database_sync_to_async
     def mark_video_as_analyzed(self, uploaded_video_id):
@@ -272,12 +300,19 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
             print(f"Video {uploaded_video_id} marked as analyzed.")
         except UploadedVideo.DoesNotExist:
             print(f"Uploaded video with ID {uploaded_video_id} not found.")
+    
+    def resize_frame(self, frame, size=640):
+        h, w, _ = frame.shape
+        scale = size / max(h, w)
+        nh, nw = int(h * scale), int(w * scale)
+        frame_resized = cv2.resize(frame, (nw, nh))
+
+        new_frame = np.full((size, size, 3), 128, dtype=np.uint8)
+        new_frame[(size - nh) // 2:(size - nh) // 2 + nh, (size - nw) // 2:(size - nw) // 2 + nw] = frame_resized
+        return new_frame
+
 
     def process_frame_with_yolo(self, frame):
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        frame = torch.from_numpy(frame).to(device).float() / 255.0
-        frame = frame.permute(2, 0, 1).unsqueeze(0)  # Add batch dimension
-
         results = model(frame)
         detections = []
         for *xyxy, conf, cls in results.xyxy[0]:
@@ -289,10 +324,18 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
                 "confidence": confidence,
                 "bbox": bbox
             })
-
-        annotated_frame = results.render()[0].permute(1, 2, 0).cpu().numpy()
+        
+        annotated_frame = results.render()[0]
         return detections, annotated_frame
-    
+
+
+    def draw_boxes(self, image, detections):
+        for det in detections:
+            bbox = det['bbox']
+            cv2.rectangle(image, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), (255, 0, 0), 2)
+            cv2.putText(image, f"{det['label']} {det['confidence']:.2f}", (int(bbox[0]), int(bbox[1]-10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2)
+        return image
+
     @database_sync_to_async
     def save_processed_video(self, uploaded_video_id, video_path):
         try:
@@ -300,7 +343,7 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
             uploaded_video = UploadedVideo.objects.get(id=uploaded_video_id)
             with open(video_path, 'rb') as f:
                 uploaded_video.processed_video.save(f"{uploaded_video_id}_processed.mp4", File(f))
-            os.remove(video_path)  # Clean up the temporary file
+            os.remove(video_path)
             print(f"Processed video for {uploaded_video_id} saved successfully.")
         except UploadedVideo.DoesNotExist:
             print(f"Uploaded video with ID {uploaded_video_id} not found.")

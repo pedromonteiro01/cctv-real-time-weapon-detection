@@ -4,12 +4,13 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext/AuthContext';
 import './Login.css';
 import logo from './logo.png';
+import Input from '../../components/Input/Input';
 
 function LoginForm() {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const navigate = useNavigate();
-    const { authToken, login } = useAuth(); 
+    const { authToken, login } = useAuth();
 
     useEffect(() => {
         if (authToken) {
@@ -23,22 +24,22 @@ function LoginForm() {
             username,
             password,
         };
-    
+
         try {
-            const response = await fetch('http://localhost:8000/api/login/', {
+            const response = await fetch('http://localhost:8000/api/user/login/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(loginData),
             });
-    
+
             const data = await response.json();
             if (response.ok) {
-                localStorage.setItem('token', data.token); 
+                localStorage.setItem('token', data.token);
                 login(data.token);
                 toast.success('Successfully Login!');
-                navigate('/database'); 
+                navigate('/database');
             } else {
                 throw new Error(data.error || 'Login failed');
             }
@@ -55,18 +56,20 @@ function LoginForm() {
     return (
         <div className='login-form'>
             <div className='login-img-wrapper'>
-                <img src={logo} alt='login'/>
+                <img src={logo} alt='login' />
             </div>
             <form className='login-form-wrapper' onSubmit={handleSubmit}>
-                <input
+                <Input
                     type="text"
                     value={username}
+                    name="username"
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Username"
                 />
-                <input
+                <Input
                     type="password"
                     value={password}
+                    name="password"
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Password"
                 />

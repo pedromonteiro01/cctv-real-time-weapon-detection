@@ -10,6 +10,8 @@ services:
       MYSQL_PASSWORD: userpassword
     ports:
       - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
@@ -29,32 +31,6 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    depends_on:
-      - backend
-
-  backend:
-    environment:
-        - DJANGO_SETTINGS_MODULE=backend.settings
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    command: >
-      sh -c "python manage.py wait_for_db &&
-            python manage.py custom_migrate &&
-            python manage.py populate_db && 
-            uvicorn backend.asgi:application --host 0.0.0.0 --reload"
-    volumes:
-      - ./backend:/app
-    depends_on:
-      - mysql
-    ports:
-      - "8000:8000"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              capabilities: [gpu]
 
   rabbitmq:
     image: rabbitmq:3-management

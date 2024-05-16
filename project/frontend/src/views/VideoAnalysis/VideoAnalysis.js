@@ -2,8 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import './VideoAnalysis.css';
 import { useAuth } from '../../context/AuthContext/AuthContext';
-import Modal from '../DetectionHistory/Modal';
 import { FaEye, FaDownload } from "react-icons/fa";
+import Modal from '../../components/Modal/Modal';
 
 function VideoAnalysis() {
     const { videoId } = useParams();
@@ -23,26 +23,36 @@ function VideoAnalysis() {
                 'Authorization': `Token ${authToken}`,
             },
         })
-        .then(response => response.json())
-        .then(data => {
-            setIsAnalyzed(data.analyzed);
-            if (!data.analyzed) {
-                // Video is not analyzed, delete detections
-                fetch(`http://localhost:8000/api/delete_detections/${videoId}/`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Token ${authToken}`,
-                    },
-                })
-                .then(res => res.json())
-                .then(result => console.log(result.message))
-                .catch(error => console.error('Error deleting detections:', error));
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching video details:', error);
-        });
-    }, [videoId, authToken]);
+            .then(response => response.json())
+            .then(data => {
+                setIsAnalyzed(data.analyzed);
+                if (!data.analyzed) {
+                    fetch(`http://localhost:8000/api/detections/${videoId}/delete/`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': `Token ${authToken}`,
+                        },
+                    })
+                        .then(response => {
+                            if (!response.ok) throw new Error('Network response was not ok.');
+                            if (response.status === 204) {
+                                console.log('Detections deleted successfully');
+                                return null;
+                            } else {
+                                return response.json();
+                            }
+                        })
+                        .then(result => {
+                            if (result) console.log('Detections deleted:', result.message);
+                        })
+                        .catch(error => console.error('Error deleting detections:', error));
+
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching video details:', error);
+            });
+    }, []);
 
     useEffect(() => {
         fetch(`http://localhost:8000/api/uploaded_videos/${videoId}/`, {
@@ -151,6 +161,7 @@ function VideoAnalysis() {
                     const detectionsWithFrames = data.detections.map(detection => ({
                         ...detection,
                         frame: data.frame,
+                        timestamp: detection.timestamp
                     }));
                     persistDetections(detectionsWithFrames);
                     setDetections((prevDetections) => [...prevDetections, ...detectionsWithFrames]);
@@ -166,7 +177,7 @@ function VideoAnalysis() {
                 ws.close();
             };
         }
-    }, [isAnalyzed, videoId]); // Now depends on isAnalyzed and videoId.
+    }, [isAnalyzed, videoId]);
 
     const fetchVideoDetails = () => {
         fetch(`http://localhost:8000/api/uploaded_videos/${videoId}/`, {
@@ -215,6 +226,16 @@ function VideoAnalysis() {
         setShowModal(false);
     };
 
+    const formatTime = (seconds) => {
+        const pad = (num, size) => num.toString().padStart(size, '0');
+        const totalSeconds = Math.floor(seconds);
+        const minutes = Math.floor(totalSeconds / 60);
+        const remainingSeconds = totalSeconds % 60;
+        const milliseconds = Math.floor((seconds % 1) * 1000);
+
+        return `${pad(minutes, 2)}:${pad(remainingSeconds, 2)}.${pad(milliseconds, 3)}`;
+    };
+
     const maxPage = Math.ceil(detections.length / itemsPerPage);
     const indexOfLastDetection = detections.length - ((currentPage - 1) * itemsPerPage);
     const indexOfFirstDetection = Math.max(indexOfLastDetection - itemsPerPage, 0);
@@ -258,6 +279,7 @@ function VideoAnalysis() {
                                 <th>Weapon Type</th>
                                 <th>Confidence</th>
                                 <th>Frame</th>
+                                <th>Timestamp</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -270,6 +292,7 @@ function VideoAnalysis() {
 
                                         </FaEye>
                                     </td>
+                                    <td>{formatTime(detection.timestamp)}</td>
                                 </tr>
                             ))}
                         </tbody>

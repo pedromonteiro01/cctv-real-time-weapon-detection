@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     'channels',
     'rest_framework',
     'rest_framework.authtoken',
+    'drf_yasg',
+    'silk',
 ]
 
 REST_FRAMEWORK = {
@@ -60,6 +62,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'silk.middleware.SilkyMiddleware',
 ]
 
 CSRF_TRUSTED_ORIGINS = ['http://localhost:3000','https://*.127.0.0.1']
@@ -104,8 +108,11 @@ DATABASES = {
         'NAME': 'mydatabase',
         'USER': 'user',
         'PASSWORD': 'userpassword',
-        'HOST': 'mysql',  # Matches the service name in docker-compose.yml
+        'HOST': '127.0.0.1',
         'PORT': '3306',
+        'TEST': {
+            'NAME': 'test_db',
+        },
     }
 }
 
@@ -145,6 +152,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+SWAGGER_SETTINGS = {
+    'USE_SESSION_AUTH': False        
+}
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
