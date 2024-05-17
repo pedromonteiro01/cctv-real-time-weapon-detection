@@ -13,22 +13,27 @@ const Dashboard = () => {
 
     const handleWeaponDetection = (detectedInfo) => {
         setIsAlert(true);
-    
+
+        // Extracting date and time from detectedInfo.date
+        const dateTime = new Date(detectedInfo.date);
+        const date = dateTime.toISOString().split('T')[0];
+        const time = dateTime.toTimeString().split(' ')[0];
+
         const newRecord = {
             camera: detectedInfo.camera,
             weapon_type: detectedInfo.weaponType,
-            date: detectedInfo.date,
-            time: detectedInfo.time,
+            date: date,
+            time: time,
             site: detectedInfo.location,
             confidence: Math.round(detectedInfo.confidence * 100)
         };
-    
+
         setRecords(prevRecords => {
             const updatedNo = prevRecords.length + 1;
             return [{...newRecord, no: updatedNo}, ...prevRecords];
         });       
         setLastDetectedCamera(detectedInfo.camera);
-    
+
         console.log(detectedInfo);
         fetch('http://localhost:8000/api/detections/', {
             method: 'POST',
@@ -51,12 +56,9 @@ const Dashboard = () => {
         .catch((error) => {
             console.error('Error saving detection:', error);
         });
-    
+
         setTimeout(() => setIsAlert(false), 5000);
     };
-    
-
-
 
     return (
         <div className="dashboard-wrapper">
