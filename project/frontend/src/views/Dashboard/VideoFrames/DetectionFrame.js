@@ -18,6 +18,7 @@ const DetectionFrame = ({ onWeaponDetected }) => {
     const timestamp = location.state?.timestamp || 0;
     const ws = useRef(null);
     const isMounted = useRef(true);
+    const processedDetections = useRef(new Set());
 
     const connectWebSocket = () => {
         ws.current = new WebSocket(`ws://localhost:8000/ws/video/${cameraId}/?timestamp=${timestamp}`);
@@ -34,11 +35,13 @@ const DetectionFrame = ({ onWeaponDetected }) => {
             setCameraInfo({
                 id: data.camera_id || cameraInfo.id,
                 location: data.location || cameraInfo.location,
-                day: data.day || cameraInfo.day,
-                hour: data.hour || cameraInfo.hour
+                day: new Date(data.timestamp).toLocaleDateString(),
+                hour: new Date(data.timestamp).toLocaleTimeString()
             });
 
-            if (data.detections && data.detections.length > 0) {
+            if (data.detections && data.detections.length > 0 && !processedDetections.current.has(data.detection_id)) {
+                processedDetections.current.add(data.detection_id);  // Mark detection as processed
+
                 data.detections.forEach((detection) => {
                     const message = `Detection: ${detection.label} with ${Math.round(detection.confidence * 100)}% confidence`;
                     toast(message, {
@@ -53,8 +56,7 @@ const DetectionFrame = ({ onWeaponDetected }) => {
                     onWeaponDetected({
                         camera: data.camera_id,
                         weaponType: detection.label,
-                        date: data.day,
-                        time: data.hour,
+                        date: data.timestamp,
                         location: data.location,
                         frame: data.frame,
                         confidence: detection.confidence

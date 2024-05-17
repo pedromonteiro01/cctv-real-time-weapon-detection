@@ -8,6 +8,7 @@ export const WebSocketProvider = ({ children, authToken }) => {
     const [isLoading, setIsLoading] = useState(true);
     const ws = useRef(null);
     const isMounted = useRef(true);
+    const processedDetections = useRef(new Set());
 
     useEffect(() => {
         isMounted.current = true;
@@ -28,15 +29,14 @@ export const WebSocketProvider = ({ children, authToken }) => {
             if (!isMounted.current) return;
 
             const data = JSON.parse(event.data);
-            const frameDetails = {
-                timestamp: data.hour, 
-                frame: data.frame
-            };
+            const timestamp = data.timestamp;
+            const dateTime = new Date(timestamp).toLocaleString();
 
-            const dateTime = formatTimestamp(frameDetails.timestamp);
-            if (frameDetails && frameDetails.frame) {
+            if (data.frame) {
                 const detections = data.detections ? data.detections.length : 0;
-                if (detections > 0) {
+                if (detections > 0 && !processedDetections.current.has(data.detection_id)) {
+                    processedDetections.current.add(data.detection_id);  // Mark detection as processed
+
                     toast(`New detection found on Camera ${data.camera_id}`, {
                         icon: '🚨',
                         style: {
@@ -49,9 +49,9 @@ export const WebSocketProvider = ({ children, authToken }) => {
                     const detectedInfo = {
                         camera: data.camera_id,
                         frame: data.frame,
-                        weaponType: data.detections[0].label,  
+                        weaponType: data.detections[0].label,
                         location: data.location,
-                        confidence: data.detections[0].confidence,  
+                        confidence: data.detections[0].confidence,
                     };
 
                     fetch('http://localhost:8000/api/detections/', {
@@ -83,7 +83,7 @@ export const WebSocketProvider = ({ children, authToken }) => {
                         id: data.camera_id,
                         ...prev[data.camera_id],
                         location: data.location,
-                        frameSrc: `data:image/jpeg;base64,${frameDetails.frame}`,
+                        frameSrc: `data:image/jpeg;base64,${data.frame}`,
                         dateTime: dateTime,
                         detections: (prev[data.camera_id]?.detections || 0) + detections,
                     },
@@ -104,22 +104,6 @@ export const WebSocketProvider = ({ children, authToken }) => {
             }
         };
     }, [authToken]);
-
-    const formatTimestamp = (timestamp) => {
-        if (isNaN(timestamp) || timestamp === undefined) {
-            console.error("Invalid timestamp:", timestamp);
-            return 'Invalid DateTime';
-        }
-
-        const date = new Date(timestamp);
-        const day = date.getDate().toString().padStart(2, '0');
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const year = date.getFullYear();
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-
-        return `${day}/${month}/${year} ${hours}:${minutes}`;
-    };
 
     return (
         <WebSocketContext.Provider value={{ cameras, isLoading }}>

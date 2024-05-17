@@ -19,6 +19,7 @@ import os
 from django.core.files import File
 import subprocess
 from collections import deque
+import uuid
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("\n\n device \n\n ", device)
@@ -62,23 +63,23 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
                         detections, annotated_frame = self.process_frame_with_yolo(frame)
                         _, buffer = cv2.imencode('.jpg', annotated_frame)
                         frame_base64 = base64.b64encode(buffer).decode('utf-8')
-                        await self.send_frame_to_websocket(detections, frame_base64, camera_id)
+                        await self.send_frame_to_websocket(detections, frame_base64)
 
-    async def send_frame_to_websocket(self, detections, frame_base64, camera_id):
-        if self.camera_details and self.connection_open:
-            try:
-                await self.send(text_data=json.dumps({
-                    'camera_id': self.camera_details['id'],
-                    'location': self.camera_details['location'],
-                    'day': datetime.now().strftime('%d/%m/%Y'),
-                    'hour': datetime.now().strftime('%H:%M:%S'),
-                    'detections': detections,
-                    'frame': frame_base64,
-                }))
-            except Exception as e:
-                print(f"Error sending frame to websocket: {e}")
-            finally:
-                torch.cuda.empty_cache()
+    async def send_frame_to_websocket(self, detections, frame_base64):
+        timestamp = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ')  # ISO 8601 format
+        try:
+            await self.send(text_data=json.dumps({
+                'camera_id': self.camera_details['id'],
+                'location': self.camera_details['location'],
+                'timestamp': timestamp,
+                'frame': frame_base64,
+                'detections': detections,
+                'detection_id': str(uuid.uuid4())  # Generate a unique detection ID
+            }))
+        except Exception as e:
+            print(f"Error sending frame to websocket: {e}")
+        finally:
+            torch.cuda.empty_cache()
 
     def process_frame_with_yolo(self, frame):
         results = model(frame)
@@ -93,6 +94,10 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
                 "bbox": bbox
             })
         annotated_frame = results.render()[0]
+
+        # Manually free up memory
+        torch.cuda.empty_cache()
+
         return detections, annotated_frame
 
     @database_sync_to_async
@@ -146,20 +151,22 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
             await self.send_frame_to_websocket(detections, frame_base64, camera)
 
     async def send_frame_to_websocket(self, detections, frame_base64, camera):
-        timestamp = datetime.now().strftime('%H:%M:%S')
+        timestamp = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ')  # ISO 8601 format
         self.camera_timestamps[camera["id"]] = timestamp
 
         try:
             await self.send(text_data=json.dumps({
                 'camera_id': camera["id"],
                 'location': camera["location"],
-                'day': datetime.now().strftime('%d/%m/%Y'),
-                'hour': timestamp,
+                'timestamp': timestamp,
                 'frame': frame_base64,
                 'detections': detections,
+                'detection_id': str(uuid.uuid4())  # Generate a unique detection ID
             }))
         except Exception as e:
-            pass
+            print(f"Error sending frame to websocket: {e}")
+        finally:
+            torch.cuda.empty_cache()
 
     async def disconnect(self, close_code):
         await self.connection.close()
@@ -177,6 +184,10 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
                 "bbox": bbox
             })
         annotated_frame = results.render()[0]
+
+        # Manually free up memory
+        torch.cuda.empty_cache()
+
         return detections, annotated_frame
 
     @database_sync_to_async

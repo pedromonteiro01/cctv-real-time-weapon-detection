@@ -17,6 +17,7 @@ const CameraStream = ({ camera, frameSrc }) => {
         <div className="database-image" onClick={handleCameraClick} style={{ cursor: 'pointer' }}>
             <TopFrameOverlay {...camera} showDetections={true} />
             <img src={frameSrc} alt={`Camera ${camera.id}`} style={{ width: '100%', height: 'auto' }} />
+            <div className="camera-timestamp">{camera.dateTime}</div> {/* Add timestamp */}
         </div>
     );
 };
@@ -39,7 +40,7 @@ const Database = () => {
                     Object.keys(cameras).length > 0 ?
                         Object.values(cameras).map(camera => (
                             <CameraStream key={camera.id} camera={camera} frameSrc={camera.frameSrc} />
-                        )) : <div>No camera data available.</div>
+                        )) : <div style={{color: '#fff'}}>No camera data available.</div>
                 )}
             </div>
         </div>
