@@ -134,7 +134,7 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
         async for message in queue:
             await self.handle_message(message, camera)
 
-    async def handle_message(self, message: IncomingMessage, camera):
+    async def handle_message(self, message, camera):
         async with message.process():
             frame_data = base64.b64decode(json.loads(message.body.decode())['frame'])
             frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
