@@ -21,7 +21,7 @@ const DetectionFrame = ({ onWeaponDetected }) => {
     const processedDetections = useRef(new Set());
 
     const connectWebSocket = () => {
-        ws.current = new WebSocket(`ws://localhost:8000/ws/video/${cameraId}/?timestamp=${timestamp}`);
+        ws.current = new WebSocket(`ws://localhost:8080/ws/video/${cameraId}/?timestamp=${timestamp}`);
 
         ws.current.onopen = () => {
             console.log("WebSocket connected");

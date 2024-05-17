@@ -26,8 +26,7 @@ SECRET_KEY = 'django-insecure-$^79jgch$y)#29+w#j-_yeq$k(u=z4xjkins)3$8+4cl=-q3u6
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '172.17.0.1', '0.0.0.0'] 
 
 # Application definition
 
@@ -66,11 +65,31 @@ MIDDLEWARE = [
     'silk.middleware.SilkyMiddleware',
 ]
 
-CSRF_TRUSTED_ORIGINS = ['http://localhost:3000','https://*.127.0.0.1']
+CSRF_TRUSTED_ORIGINS = ['http://localhost:3000', 'http://localhost:8080','https://*.127.0.0.1']
 
+CORS_ALLOW_ALL_ORIGINS = True 
 
+CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
 
 ROOT_URLCONF = 'backend.urls'
 

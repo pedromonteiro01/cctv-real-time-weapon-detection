@@ -13,7 +13,7 @@ function VideoUpload() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        fetch('http://localhost:8000/api/uploaded_videos/', {
+        fetch('http://localhost:8080/api/uploaded_videos/', {
             headers: {
                 'Authorization': `Token ${authToken}`,
             },
@@ -38,27 +38,35 @@ function VideoUpload() {
             toast.error('Please select a video to upload.');
             return;
         }
-
+    
         const formData = new FormData();
         formData.append('video', video);
-
-        fetch('http://localhost:8000/api/uploaded_videos/upload_video/', {
+    
+        fetch('http://localhost:8080/api/uploaded_videos/upload_video/', {
             method: 'POST',
             body: formData,
             headers: {
                 'Authorization': `Token ${authToken}`,
             },
         })
-            .then(response => response.json())
-            .then(data => {
-                toast.success('Video uploaded successfully');
-                navigate(`/upload/${data.id}`);
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                toast.error('Error uploading video');
-            });
+        .then(response => {
+            if (!response.ok) {
+                // If the server response was not ok, throw an error with the status text
+                throw new Error('Network response was not ok: ' + response.statusText);
+            }
+            return response.json();  // Parse JSON only if response was ok
+        })
+        .then(data => {
+            toast.success('Video uploaded successfully');
+            navigate(`/upload/${data.id}`);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            toast.error('Error uploading video: ' + error.message);
+        });
     };
+    
+    
 
     return (
         <div className='upload-wrapper'>

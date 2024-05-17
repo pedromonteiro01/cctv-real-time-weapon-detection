@@ -18,7 +18,7 @@ export const WebSocketProvider = ({ children, authToken }) => {
             return;
         }
 
-        ws.current = new WebSocket(`ws://localhost:8000/ws/multi_camera/${authToken}/`);
+        ws.current = new WebSocket(`ws://localhost:8080/ws/multi_camera/${authToken}/`);
 
         ws.current.onopen = () => {
             console.log("WebSocket connected");
@@ -54,7 +54,7 @@ export const WebSocketProvider = ({ children, authToken }) => {
                         confidence: data.detections[0].confidence,
                     };
 
-                    fetch('http://localhost:8000/api/detections/', {
+                    fetch('http://localhost:8080/api/detections/', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

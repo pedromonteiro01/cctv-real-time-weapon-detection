@@ -14,7 +14,7 @@ const DetectionHistory = () => {
 
     useEffect(() => {
         setIsLoading(true);
-        fetch('http://localhost:8000/api/detections/', {
+        fetch('http://localhost:8080/api/detections/', {
             headers: { 'Authorization': `Token ${authToken}` }
         })
             .then(response => {

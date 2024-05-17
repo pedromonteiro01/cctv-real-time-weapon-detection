@@ -17,7 +17,7 @@ describe('DetectionFrame', () => {
 
   beforeEach(() => {
     useParams.mockReturnValue({ cameraId: '123' });
-    const fakeURL = 'ws://localhost:8000/ws/video/123/';
+    const fakeURL = 'ws://localhost:8080/ws/video/123/';
     mockServer = new Server(fakeURL);
     global.WebSocket = window.WebSocket;
 

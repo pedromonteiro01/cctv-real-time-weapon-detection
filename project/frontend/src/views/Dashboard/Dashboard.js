@@ -35,7 +35,7 @@ const Dashboard = () => {
         setLastDetectedCamera(detectedInfo.camera);
 
         console.log(detectedInfo);
-        fetch('http://localhost:8000/api/detections/', {
+        fetch('http://localhost:8080/api/detections/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
