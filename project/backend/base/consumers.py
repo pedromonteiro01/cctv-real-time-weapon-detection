@@ -1,7 +1,8 @@
 import asyncio
+from collections import deque
 import json
 from channels.generic.websocket import AsyncWebsocketConsumer
-from datetime import datetime, timedelta
+from datetime import datetime
 import torch
 import base64
 import cv2
@@ -9,22 +10,24 @@ from uvicorn.protocols.utils import ClientDisconnected
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
 from aio_pika import connect_robust, IncomingMessage
-import pika
-from asgiref.sync import sync_to_async
-import threading
-from channels.db import database_sync_to_async
 import numpy as np
 import tempfile
 import os
 from django.core.files import File
-import subprocess
-from collections import deque
 import uuid
+from asgiref.sync import sync_to_async
+
+from torch.nn.parallel import DataParallel
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("\n\n device \n\n ", device)
+
+# Load the model and wrap it with DataParallel if multiple GPUs are available
 model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best.pt').to(device)
- 
+if torch.cuda.device_count() > 1:
+    print(f"Using {torch.cuda.device_count()} GPUs!")
+    model = DataParallel(model)
+
 class VideoStreamConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.camera_id = self.scope['url_route']['kwargs']['camera_id']
@@ -60,7 +63,7 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
                     self.frame_buffer.append(frame)
                     if len(self.frame_buffer) > 0:
                         frame = self.frame_buffer.popleft()
-                        detections, annotated_frame = self.process_frame_with_yolo(frame)
+                        detections, annotated_frame = await self.process_frame_with_yolo(frame)
                         _, buffer = cv2.imencode('.jpg', annotated_frame)
                         frame_base64 = base64.b64encode(buffer).decode('utf-8')
                         await self.send_frame_to_websocket(detections, frame_base64)
@@ -81,11 +84,12 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
         finally:
             torch.cuda.empty_cache()
 
-    def process_frame_with_yolo(self, frame):
+    async def process_frame_with_yolo(self, frame):
+        # Ensure the frame is in the right format and then process it on the GPU(s)
         results = model(frame)
         detections = []
         for *xyxy, conf, cls in results.xyxy[0]:
-            label = model.names[int(cls)]
+            label = model.module.names[int(cls)] if torch.cuda.device_count() > 1 else model.names[int(cls)]
             bbox = [float(coord) for coord in xyxy]
             confidence = float(conf)
             detections.append({
@@ -143,7 +147,7 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
         async with message.process():
             frame_data = base64.b64decode(json.loads(message.body.decode())['frame'])
             frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
-            detections, annotated_frame = self.process_frame_with_yolo(frame)
+            detections, annotated_frame = await self.process_frame_with_yolo(frame)
 
             _, buffer = cv2.imencode('.jpg', annotated_frame)
             frame_base64 = base64.b64encode(buffer).decode('utf-8')
@@ -171,11 +175,12 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         await self.connection.close()
 
-    def process_frame_with_yolo(self, frame):
+    async def process_frame_with_yolo(self, frame):
+        # Ensure the frame is in the right format and then process it on the GPU(s)
         results = model(frame)
         detections = []
         for *xyxy, conf, cls in results.xyxy[0]:
-            label = model.names[int(cls)]
+            label = model.module.names[int(cls)] if torch.cuda.device_count() > 1 else model.names[int(cls)]
             bbox = [float(coord) for coord in xyxy]
             confidence = float(conf)
             detections.append({
@@ -259,7 +264,7 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
             frame_count += 1
             print(f"Frame count: {frame_count}, Timestamp: {timestamp:.2f}s")
             
-            detections, annotated_frame = self.process_frame_with_yolo(frame)
+            detections, annotated_frame = await self.process_frame_with_yolo(frame)
             out.write(annotated_frame)
 
             for det in detections:
@@ -307,11 +312,12 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
         except UploadedVideo.DoesNotExist:
             print(f"Uploaded video with ID {uploaded_video_id} not found.")
 
-    def process_frame_with_yolo(self, frame):
+    async def process_frame_with_yolo(self, frame):
+        # Ensure the frame is in the right format and then process it on the GPU(s)
         results = model(frame)
         detections = []
         for *xyxy, conf, cls in results.xyxy[0]:
-            label = model.names[int(cls)]
+            label = model.module.names[int(cls)] if torch.cuda.device_count() > 1 else model.names[int(cls)]
             bbox = [float(coord) for coord in xyxy]
             confidence = float(conf)
             detections.append({
