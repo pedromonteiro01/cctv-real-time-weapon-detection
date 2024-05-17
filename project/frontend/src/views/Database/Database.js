@@ -1,3 +1,5 @@
+// Database.js
+
 import React, { useState, useEffect, useRef } from 'react';
 import TopFrameOverlay from '../../components/TopFrameOverlay/TopFrameOverlay';
 import './Database.css';
@@ -5,6 +7,7 @@ import { ClipLoader } from 'react-spinners';
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
 import { useAuth } from '../../context/AuthContext/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 const CameraStream = ({ camera, frameSrc }) => {
     const navigate = useNavigate();
@@ -15,7 +18,7 @@ const CameraStream = ({ camera, frameSrc }) => {
 
     return (
         <div className="database-image" onClick={handleCameraClick} style={{ cursor: 'pointer' }}>
-            <TopFrameOverlay {...camera} />
+            <TopFrameOverlay {...camera} showDetections={true} />
             <img src={frameSrc} alt={`Camera ${camera.id}`} style={{ width: '100%', height: 'auto' }} />
         </div>
     );
@@ -26,8 +29,11 @@ const Database = () => {
     const [isLoading, setIsLoading] = useState(true);
     const ws = useRef(null);
     const { authToken } = useAuth();
+    const isMounted = useRef(true);
 
     useEffect(() => {
+        isMounted.current = true;
+
         if (!authToken) {
             console.error("authToken is undefined!");
             return;
@@ -40,16 +46,59 @@ const Database = () => {
         };
 
         ws.current.onmessage = (event) => {
+            if (!isMounted.current) return;
+
             const data = JSON.parse(event.data);
-            let frameDetails;
-            try {
-                frameDetails = JSON.parse(data.frame); 
-            } catch (error) {
-                console.error("Error parsing data.frame as JSON:", error);
-                return; 
-            }
-            const { formattedDate, formattedTime } = formatTimestamp(frameDetails.timestamp);
+            const frameDetails = {
+                timestamp: data.hour,  // Assuming the timestamp is sent as part of the data
+                frame: data.frame
+            };
+
+            const dateTime = formatTimestamp(frameDetails.timestamp);
             if (frameDetails && frameDetails.frame) {
+                const detections = data.detections ? data.detections.length : 0;
+                if (detections > 0) {
+                    toast(`New detection found on Camera ${data.camera_id}`, {
+                        icon: '🚨',
+                        style: {
+                            border: '1px solid #ff0000',
+                            padding: '16px',
+                            color: '#ff0000',
+                        },
+                    });
+
+                    // Post request for detection
+                    const detectedInfo = {
+                        camera: data.camera_id,
+                        frame: data.frame,
+                        weaponType: data.detections[0].label,  // Assuming the first detection's label
+                        location: data.location,
+                        confidence: data.detections[0].confidence,  // Assuming the first detection's confidence
+                    };
+
+                    fetch('http://localhost:8000/api/detections/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Token ${authToken}`,
+                        },
+                        body: JSON.stringify({
+                            camera: parseInt(detectedInfo.camera, 10),
+                            frame: detectedInfo.frame,
+                            weapon_type: detectedInfo.weaponType,
+                            site: detectedInfo.location,
+                            confidence: Math.round(detectedInfo.confidence * 100),
+                        }),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Detection saved:', data);
+                    })
+                    .catch((error) => {
+                        console.error('Error saving detection:', error);
+                    });
+                }
+
                 setCameras(prev => ({
                     ...prev,
                     [data.camera_id]: {
@@ -57,8 +106,8 @@ const Database = () => {
                         ...prev[data.camera_id],
                         location: data.location,
                         frameSrc: `data:image/jpeg;base64,${frameDetails.frame}`,
-                        day: formattedDate,
-                        hour: formattedTime,
+                        dateTime: dateTime,
+                        detections: (prev[data.camera_id]?.detections || 0) + detections,
                     },
                 }));
                 setIsLoading(false);
@@ -70,27 +119,28 @@ const Database = () => {
             setIsLoading(false);
         };
 
-        return () => ws.current?.close();
+        return () => {
+            isMounted.current = false;
+            if (ws.current) {
+                ws.current.close();
+            }
+        };
     }, [authToken]);
 
     const formatTimestamp = (timestamp) => {
         if (isNaN(timestamp) || timestamp === undefined) {
             console.error("Invalid timestamp:", timestamp);
-            return { formattedDate: 'Invalid Date', formattedTime: 'Invalid Time' };
+            return 'Invalid DateTime';
         }
 
         const date = new Date(timestamp);
-        const day = date.getDate().toString().padStart(2, '0'); // dd
-        const month = (date.getMonth() + 1).toString().padStart(2, '0'); // mm
-        const year = date.getFullYear(); // yyyy
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
 
-        const hours = date.getHours(); // h
-        const minutes = date.getMinutes().toString().padStart(2, '0'); // min
-
-        const formattedDate = `${day}/${month}/${year}`; // dd/mm/yyyy
-        const formattedTime = `${hours}:${minutes}`; // h:min
-
-        return { formattedDate, formattedTime };
+        return `${day}/${month}/${year} ${hours}:${minutes}`;
     };
 
     return (

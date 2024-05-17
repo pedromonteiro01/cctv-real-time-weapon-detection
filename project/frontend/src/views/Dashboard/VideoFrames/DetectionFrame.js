@@ -7,26 +7,37 @@ import { PiFilmSlateLight } from "react-icons/pi";
 import { BsSkipBackward } from "react-icons/bs";
 import toast from 'react-hot-toast';
 import TopFrameOverlay from '../../../components/TopFrameOverlay/TopFrameOverlay';
-import { useParams } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 
 const DetectionFrame = ({ onWeaponDetected }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const [cameraInfo, setCameraInfo] = useState({ id: '', location: '', day: '', hour: '' });
     const canvasRef = useRef(null);
     const { cameraId } = useParams();
+    const location = useLocation();
+    const timestamp = location.state?.timestamp || 0;
+    const ws = useRef(null);
+    const isMounted = useRef(true);
 
-    useEffect(() => {
-        const ws = new WebSocket(`ws://localhost:8000/ws/video/${cameraId}/`);
-        ws.onmessage = (e) => {
+    const connectWebSocket = () => {
+        ws.current = new WebSocket(`ws://localhost:8000/ws/video/${cameraId}/?timestamp=${timestamp}`);
+
+        ws.current.onopen = () => {
+            console.log("WebSocket connected");
+        };
+
+        ws.current.onmessage = (e) => {
             const data = JSON.parse(e.data);
-        
+
+            if (!isMounted.current) return;
+
             setCameraInfo({
                 id: data.camera_id || cameraInfo.id,
                 location: data.location || cameraInfo.location,
                 day: data.day || cameraInfo.day,
                 hour: data.hour || cameraInfo.hour
             });
-        
+
             if (data.detections && data.detections.length > 0) {
                 data.detections.forEach((detection) => {
                     const message = `Detection: ${detection.label} with ${Math.round(detection.confidence * 100)}% confidence`;
@@ -38,7 +49,7 @@ const DetectionFrame = ({ onWeaponDetected }) => {
                             color: '#ff0000',
                         },
                     });
-        
+
                     onWeaponDetected({
                         camera: data.camera_id,
                         weaponType: detection.label,
@@ -50,8 +61,8 @@ const DetectionFrame = ({ onWeaponDetected }) => {
                     });
                 });
             }
-        
-            if (data.frame) {
+
+            if (data.frame && canvasRef.current) {
                 const context = canvasRef.current.getContext('2d');
                 const blob = base64ToBlob(data.frame, 'image/jpeg');
                 const image = new Image();
@@ -62,8 +73,29 @@ const DetectionFrame = ({ onWeaponDetected }) => {
             }
         };
 
-        return () => ws.close();
-    }, [cameraId]);
+        ws.current.onerror = (error) => {
+            console.error("WebSocket error:", error);
+        };
+
+        ws.current.onclose = () => {
+            console.log("WebSocket closed. Reconnecting...");
+            if (isMounted.current) {
+                setTimeout(() => connectWebSocket(), 1000);
+            }
+        };
+    };
+
+    useEffect(() => {
+        isMounted.current = true;
+        connectWebSocket();
+
+        return () => {
+            isMounted.current = false;
+            if (ws.current) {
+                ws.current.close();
+            }
+        };
+    }, [cameraId, timestamp]);
 
     const base64ToBlob = (base64, mime) => {
         const byteCharacters = atob(base64);
@@ -73,7 +105,7 @@ const DetectionFrame = ({ onWeaponDetected }) => {
         }
         const byteArray = new Uint8Array(byteNumbers);
         return new Blob([byteArray], { type: mime });
-    }
+    };
 
     const toggleExpandVideo = () => {
         setIsExpanded(!isExpanded);
@@ -102,7 +134,7 @@ const DetectionFrame = ({ onWeaponDetected }) => {
                 </div>
             </div>
         </div>
-    )
-}
+    );
+};
 
 export default DetectionFrame;
