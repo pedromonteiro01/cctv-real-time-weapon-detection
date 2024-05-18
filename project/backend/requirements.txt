@@ -20,4 +20,5 @@ drf-yasg
 whitenoise
 selenium
 daphne
+django-rest-swagger
 django-silk

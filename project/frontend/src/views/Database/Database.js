@@ -3,24 +3,7 @@ import { WebSocketContext } from '../../context/WebSocketContext/WebSocketContex
 import './Database.css';
 import { ClipLoader } from 'react-spinners';
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
-import { useNavigate } from 'react-router-dom';
-import TopFrameOverlay from '../../components/TopFrameOverlay/TopFrameOverlay';
-
-const CameraStream = ({ camera, frameSrc }) => {
-    const navigate = useNavigate();
-
-    const handleCameraClick = () => {
-        navigate(`/camera/${camera.id}`);
-    };
-
-    return (
-        <div className="database-image" onClick={handleCameraClick} style={{ cursor: 'pointer' }}>
-            <TopFrameOverlay {...camera} showDetections={true} />
-            <img src={frameSrc} alt={`Camera ${camera.id}`} style={{ width: '100%', height: 'auto' }} />
-            <div className="camera-timestamp">{camera.dateTime}</div>
-        </div>
-    );
-};
+import CameraStream from '../../components/CameraStream/CameraStream';
 
 const Database = () => {
     const { cameras, isLoading } = useContext(WebSocketContext);
