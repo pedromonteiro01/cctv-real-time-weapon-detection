@@ -4,7 +4,11 @@ import DetectionHistoryTableHeader from './DetectionHistoryTableHeader';
 
 describe('DetectionHistoryTableHeader', () => {
   it('renders the table headers correctly', () => {
-    render(<DetectionHistoryTableHeader />);
+    render(
+      <table>
+        <DetectionHistoryTableHeader />
+      </table>
+    );
     expect(screen.getByText('No.')).toBeInTheDocument();
     expect(screen.getByText('Camera')).toBeInTheDocument();
     expect(screen.getByText('Weapon Type')).toBeInTheDocument();

@@ -4,6 +4,8 @@ import './VideoAnalysis.css';
 import { useAuth } from '../../context/AuthContext/AuthContext';
 import { FaEye, FaDownload } from "react-icons/fa";
 import Modal from '../../components/Modal/Modal';
+import UploadAnalysisTableHeader from './components/UploadAnalysisTableHeader/UploadAnalysisTableHeader';
+import UploadAnalysisTableRow from './components/UploadAnalysisTableRow/UploadAnalysisTableRow';
 
 function VideoAnalysis() {
     const { videoId } = useParams();
@@ -274,26 +276,15 @@ function VideoAnalysis() {
                         </label>
                     </div>
                     <table>
-                        <thead>
-                            <tr>
-                                <th>Weapon Type</th>
-                                <th>Confidence</th>
-                                <th>Frame</th>
-                                <th>Timestamp</th>
-                            </tr>
-                        </thead>
+                        <UploadAnalysisTableHeader />
                         <tbody>
                             {currentDetections.map((detection, index) => (
-                                <tr key={index}>
-                                    <td>{detection.label}</td>
-                                    <td>{(detection.confidence * 100).toFixed(2)}%</td>
-                                    <td>
-                                        <FaEye onClick={() => openDetectionFrame(detection.frame)} className="open-frame-button">
-
-                                        </FaEye>
-                                    </td>
-                                    <td>{formatTime(detection.timestamp)}</td>
-                                </tr>
+                                <UploadAnalysisTableRow
+                                    key={index}
+                                    detection={detection}
+                                    formatTime={formatTime}
+                                    openDetectionFrame={openDetectionFrame}
+                                />
                             ))}
                         </tbody>
                     </table>
