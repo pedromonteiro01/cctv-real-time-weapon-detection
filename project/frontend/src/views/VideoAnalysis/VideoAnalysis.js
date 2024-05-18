@@ -4,6 +4,8 @@ import './VideoAnalysis.css';
 import { useAuth } from '../../context/AuthContext/AuthContext';
 import { FaEye, FaDownload } from "react-icons/fa";
 import Modal from '../../components/Modal/Modal';
+import UploadAnalysisTableHeader from './components/UploadAnalysisTableHeader/UploadAnalysisTableHeader';
+import UploadAnalysisTableRow from './components/UploadAnalysisTableRow/UploadAnalysisTableRow';
 
 function VideoAnalysis() {
     const { videoId } = useParams();
@@ -18,7 +20,7 @@ function VideoAnalysis() {
     const [processedVideoUrl, setProcessedVideoUrl] = useState('');
 
     useEffect(() => {
-        fetch(`http://localhost:8000/api/uploaded_videos/${videoId}/`, {
+        fetch(`http://localhost:8080/api/uploaded_videos/${videoId}/`, {
             headers: {
                 'Authorization': `Token ${authToken}`,
             },
@@ -27,7 +29,7 @@ function VideoAnalysis() {
             .then(data => {
                 setIsAnalyzed(data.analyzed);
                 if (!data.analyzed) {
-                    fetch(`http://localhost:8000/api/detections/${videoId}/delete/`, {
+                    fetch(`http://localhost:8080/api/detections/${videoId}/delete/`, {
                         method: 'DELETE',
                         headers: {
                             'Authorization': `Token ${authToken}`,
@@ -55,7 +57,7 @@ function VideoAnalysis() {
     }, []);
 
     useEffect(() => {
-        fetch(`http://localhost:8000/api/uploaded_videos/${videoId}/`, {
+        fetch(`http://localhost:8080/api/uploaded_videos/${videoId}/`, {
             headers: {
                 'Authorization': `Token ${authToken}`,
             },
@@ -64,7 +66,7 @@ function VideoAnalysis() {
             .then(data => {
                 setIsAnalyzed(data.analyzed);
                 if (data.analyzed) {
-                    setProcessedVideoUrl(`http://localhost:8000/api/download_video/${videoId}/`);
+                    setProcessedVideoUrl(`http://localhost:8080/api/download_video/${videoId}/`);
                 }
             })
             .catch(error => {
@@ -76,7 +78,7 @@ function VideoAnalysis() {
         e.preventDefault(); // Prevent the default anchor behavior
 
         try {
-            const response = await fetch(`http://localhost:8000/api/download_video/${videoId}/`, {
+            const response = await fetch(`http://localhost:8080/api/download_video/${videoId}/`, {
                 headers: {
                     'Authorization': `Token ${authToken}`,
                 },
@@ -106,7 +108,7 @@ function VideoAnalysis() {
             })),
         };
 
-        fetch(`http://localhost:8000/api/uploaded_videos/${videoId}/detections/`, {
+        fetch(`http://localhost:8080/api/uploaded_videos/${videoId}/detections/`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -132,7 +134,7 @@ function VideoAnalysis() {
     }, [videoId, authToken]);
 
     const fetchDetections = () => {
-        fetch(`http://localhost:8000/api/uploaded_videos/${videoId}/detections/`, {
+        fetch(`http://localhost:8080/api/uploaded_videos/${videoId}/detections/`, {
             headers: {
                 'Authorization': `Token ${authToken}`,
             },
@@ -148,7 +150,7 @@ function VideoAnalysis() {
 
     useEffect(() => {
         if (!isAnalyzed) {
-            const ws = new WebSocket(`ws://localhost:8000/ws/upload/${videoId}/`);
+            const ws = new WebSocket(`ws://localhost:8080/ws/upload/${videoId}/`);
 
             ws.onopen = () => console.log('WebSocket connection established');
             ws.onerror = (error) => console.log('WebSocket error:', error);
@@ -168,7 +170,7 @@ function VideoAnalysis() {
                 }
                 if (data.status && data.status === 'completed') {
                     setIsAnalyzed(data.analyzed);
-                    setProcessedVideoUrl(`http://localhost:8000/api/download_video/${videoId}/`);
+                    setProcessedVideoUrl(`http://localhost:8080/api/download_video/${videoId}/`);
                 }
             };
 
@@ -180,7 +182,7 @@ function VideoAnalysis() {
     }, [isAnalyzed, videoId]);
 
     const fetchVideoDetails = () => {
-        fetch(`http://localhost:8000/api/uploaded_videos/${videoId}/`, {
+        fetch(`http://localhost:8080/api/uploaded_videos/${videoId}/`, {
             headers: {
                 'Authorization': `Token ${authToken}`,
             },
@@ -189,7 +191,7 @@ function VideoAnalysis() {
             .then(data => {
                 setIsAnalyzed(data.analyzed);
                 if (data.analyzed) {
-                    setProcessedVideoUrl(`http://localhost:8000/api/download_video/${videoId}/`);
+                    setProcessedVideoUrl(`http://localhost:8080/api/download_video/${videoId}/`);
                 }
             })
             .catch(error => {
@@ -274,26 +276,15 @@ function VideoAnalysis() {
                         </label>
                     </div>
                     <table>
-                        <thead>
-                            <tr>
-                                <th>Weapon Type</th>
-                                <th>Confidence</th>
-                                <th>Frame</th>
-                                <th>Timestamp</th>
-                            </tr>
-                        </thead>
+                        <UploadAnalysisTableHeader />
                         <tbody>
                             {currentDetections.map((detection, index) => (
-                                <tr key={index}>
-                                    <td>{detection.label}</td>
-                                    <td>{(detection.confidence * 100).toFixed(2)}%</td>
-                                    <td>
-                                        <FaEye onClick={() => openDetectionFrame(detection.frame)} className="open-frame-button">
-
-                                        </FaEye>
-                                    </td>
-                                    <td>{formatTime(detection.timestamp)}</td>
-                                </tr>
+                                <UploadAnalysisTableRow
+                                    key={index}
+                                    detection={detection}
+                                    formatTime={formatTime}
+                                    openDetectionFrame={openDetectionFrame}
+                                />
                             ))}
                         </tbody>
                     </table>

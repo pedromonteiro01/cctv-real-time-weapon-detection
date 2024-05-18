@@ -14,8 +14,8 @@ const RecordTable = ({ records, setRecords }) => {
 
   useEffect(() => {
     const url = cameraId 
-      ? `http://localhost:8000/api/detections/camera/${cameraId}/` 
-      : 'http://localhost:8000/api/detections/';
+      ? `http://localhost:8080/api/detections/camera/${cameraId}/` 
+      : 'http://localhost:8080/api/detections/';
       
     fetch(url, {
       method: 'GET',

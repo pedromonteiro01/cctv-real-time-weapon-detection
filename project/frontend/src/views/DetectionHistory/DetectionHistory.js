@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext/AuthContext';
 import './DetectionHistory.css';
-import { FaEye } from "react-icons/fa";
 import { ClipLoader } from 'react-spinners';
 import Modal from '../../components/Modal/Modal';
+import DetectionHistoryTableRow from './components/DetectionHistoryTableRow/DetectionHistoryTableRow';
+import DetectionHistoryTableHeader from './components/DetectionHistoryTableHeader/DetectionHistoryTableHeader';
 
 const DetectionHistory = () => {
     const [detections, setDetections] = useState([]);
@@ -14,18 +15,11 @@ const DetectionHistory = () => {
 
     useEffect(() => {
         setIsLoading(true);
-        fetch('http://localhost:8000/api/detections/', {
+        fetch('http://localhost:8080/api/detections/', {
             headers: { 'Authorization': `Token ${authToken}` }
         })
-            .then(response => {
-                if (response.ok) {
-                    return response.json();
-                } else {
-                    throw new Error('Network response was not ok');
-                }
-            })
+            .then(response => response.ok ? response.json() : Promise.reject('Failed to load'))
             .then(data => {
-                console.log("data: ", data);
                 setDetections(data.map((detection, index) => ({ ...detection, no: index + 1 })));
                 setIsLoading(false);
             })
@@ -40,47 +34,13 @@ const DetectionHistory = () => {
         setShowModal(true);
     };
 
-    const closeDetectionFrame = () => {
-        setShowModal(false);
-    };
-
-    const TableHeader = () => (
-        <thead>
-            <tr>
-                <th>No.</th>
-                <th>Camera</th>
-                <th>Weapon Type</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Site</th>
-                <th>Confidence</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-    );
-
-    const TableRow = ({ record }) => (
-        <tr className='detection-history-row'>
-            <td>{record.no}</td>
-            <td>{record.camera}</td>
-            <td>{record.weapon_type}</td>
-            <td>{record.date}</td>
-            <td>{record.time}</td>
-            <td>{record.site}</td>
-            <td>{`${record.confidence}%`}</td>
-            <td>
-                <FaEye onClick={() => openDetectionFrame(record.frame)} className="open-frame-button" />
-            </td>
-        </tr>
-    );
+    const closeDetectionFrame = () => setShowModal(false);
 
     return (
         <div className="table-container-wrapper">
             {isLoading ? (
                 <div className="spinner-container">
-                    <ClipLoader
-                        color='#fff'
-                    />
+                    <ClipLoader color='#fff' />
                 </div>
             ) : (
                 <>
@@ -88,10 +48,10 @@ const DetectionHistory = () => {
                         <span>{detections.length} records</span>
                     </div>
                     <table>
-                        <TableHeader />
+                        <DetectionHistoryTableHeader />
                         <tbody>
                             {detections.map((record, index) => (
-                                <TableRow key={index} record={record} />
+                                <DetectionHistoryTableRow key={index} record={record} onOpenFrame={openDetectionFrame} />
                             ))}
                         </tbody>
                     </table>

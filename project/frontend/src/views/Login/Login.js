@@ -24,16 +24,16 @@ function LoginForm() {
             username,
             password,
         };
-
+    
         try {
-            const response = await fetch('http://localhost:8000/api/user/login/', {
+            const response = await fetch('http://localhost:8080/api/user/login/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify(loginData),
             });
-
+    
             const data = await response.json();
             if (response.ok) {
                 localStorage.setItem('token', data.token);
@@ -48,6 +48,7 @@ function LoginForm() {
             toast.error("Incorrect Credentials.");
         }
     };
+    
 
     if (authToken) {
         return <Navigate to="/personal" />;
