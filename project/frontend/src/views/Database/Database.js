@@ -4,6 +4,7 @@ import './Database.css';
 import { ClipLoader } from 'react-spinners';
 import { FaArrowLeft, FaArrowRight } from "react-icons/fa";
 import CameraStream from '../../components/CameraStream/CameraStream';
+import IconButton from '../../components/IconButton/IconButton';
 
 const Database = () => {
     const { cameras, isLoading } = useContext(WebSocketContext);
@@ -11,8 +12,8 @@ const Database = () => {
     return (
         <div className='database-wrapper'>
             <div className="database-buttons">
-                <button onClick={null}><FaArrowLeft /> Previous</button>
-                <button onClick={null}>Next <FaArrowRight /></button>
+                <IconButton icon={FaArrowLeft} label="Previous" onClick={null} position="left" />
+                <IconButton icon={FaArrowRight} label="Next" onClick={null} position="right" />
             </div>
             <div className='database-images-grid'>
                 {isLoading ? (
@@ -23,7 +24,7 @@ const Database = () => {
                     Object.keys(cameras).length > 0 ?
                         Object.values(cameras).map(camera => (
                             <CameraStream key={camera.id} camera={camera} frameSrc={camera.frameSrc} />
-                        )) : <div style={{color: '#fff'}}>No camera data available.</div>
+                        )) : <div style={{ color: '#fff' }}>No camera data available.</div>
                 )}
             </div>
         </div>

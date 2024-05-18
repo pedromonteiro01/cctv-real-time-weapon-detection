@@ -3,8 +3,8 @@ import { useAuth } from '../../context/AuthContext/AuthContext';
 import './Upload.css';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
-import { FaExternalLinkAlt, FaCheck, FaTimes } from "react-icons/fa";
-
+import UploadTableRow from './components/UploadTableRow/UploadTableRow';
+import UploadTableHeader from './components/UploadTableHeader/UploadTableHeader';
 
 function VideoUpload() {
     const [videos, setVideos] = useState([]);
@@ -18,15 +18,15 @@ function VideoUpload() {
                 'Authorization': `Token ${authToken}`,
             },
         })
-            .then(response => response.json())
-            .then(data => {
-                console.log("data: ", data);
-                setVideos(data);
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                toast.error('Error fetching videos');
-            });
+        .then(response => response.json())
+        .then(data => {
+            console.log("data: ", data);
+            setVideos(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            toast.error('Error fetching videos');
+        });
     }, [authToken]);
 
     const handleFileChange = (e) => {
@@ -51,10 +51,9 @@ function VideoUpload() {
         })
         .then(response => {
             if (!response.ok) {
-                // If the server response was not ok, throw an error with the status text
                 throw new Error('Network response was not ok: ' + response.statusText);
             }
-            return response.json();  // Parse JSON only if response was ok
+            return response.json();
         })
         .then(data => {
             toast.success('Video uploaded successfully');
@@ -66,37 +65,16 @@ function VideoUpload() {
         });
     };
     
-    
-
     return (
         <div className='upload-wrapper'>
             <input type="file" accept="video/*" onChange={handleFileChange} />
             <button onClick={handleUpload}>Upload Video</button>
 
             <table className='upload-video-table'>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Video Name</th>
-                        <th>Status</th>
-                        <th></th>
-                    </tr>
-                </thead>
+                <UploadTableHeader />
                 <tbody>
-                    {Array.isArray(videos) && videos.map((video) => (
-                        <tr key={video.id}>
-                            <td>{video.id}</td>
-                            <td>{video.video}</td>
-                            <td>
-                                {video.analyzed ? <FaCheck style={{ color: 'green' }} /> : <FaTimes style={{ color: 'red' }} />}
-                            </td>
-                            <td>
-                                <FaExternalLinkAlt
-                                    onClick={() => navigate(`/upload/${video.id}`)}
-                                    className="redirect-upload-video"
-                                />
-                            </td>
-                        </tr>
+                    {Array.isArray(videos) && videos.map(video => (
+                        <UploadTableRow key={video.id} video={video} onNavigate={navigate} />
                     ))}
                 </tbody>
             </table>
