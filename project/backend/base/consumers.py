@@ -37,7 +37,7 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
             await self.accept()
             self.connection_open = True
             self.connection = await self.create_rabbitmq_connection()
-            self.frame_buffer = deque(maxlen=10)  # Buffer to hold frames
+            self.frame_buffer = deque(maxlen=10)
             asyncio.create_task(self.listen_to_rabbitmq(self.camera_id))
         else:
             await self.close(code=4404)
@@ -58,15 +58,24 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
 
             async for message in queue:
                 async with message.process():
-                    frame_data = base64.b64decode(json.loads(message.body.decode())['frame'])
-                    frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
-                    self.frame_buffer.append(frame)
-                    if len(self.frame_buffer) > 0:
-                        frame = self.frame_buffer.popleft()
-                        detections, annotated_frame = await self.process_frame_with_yolo(frame)
-                        _, buffer = cv2.imencode('.jpg', annotated_frame)
-                        frame_base64 = base64.b64encode(buffer).decode('utf-8')
-                        await self.send_frame_to_websocket(detections, frame_base64)
+                    if not self.processing_frame:
+                        self.processing_frame = True
+                        frame_data = base64.b64decode(json.loads(message.body.decode())['frame'])
+                        frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
+                        self.frame_buffer.append(frame)
+                        await self.process_next_frame()
+
+    async def process_next_frame(self):
+        if self.frame_buffer and not self.connection_closed:
+            frame = self.frame_buffer.popleft()
+            detections, annotated_frame = await self.process_frame_with_yolo(frame)
+            _, buffer = cv2.imencode('.jpg', annotated_frame)
+            frame_base64 = base64.b64encode(buffer).decode('utf-8')
+            await self.send_frame_to_websocket(detections, frame_base64)
+            self.processing_frame = False
+            # Trigger processing next frame if buffer is not empty
+            if self.frame_buffer:
+                await self.process_next_frame()
 
     async def send_frame_to_websocket(self, detections, frame_base64):
         timestamp = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ')  # ISO 8601 format
@@ -85,7 +94,6 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
             torch.cuda.empty_cache()
 
     async def process_frame_with_yolo(self, frame):
-        # Ensure the frame is in the right format and then process it on the GPU(s)
         results = model(frame)
         detections = []
         for *xyxy, conf, cls in results.xyxy[0]:
@@ -99,8 +107,8 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
             })
         annotated_frame = results.render()[0]
 
-        # Manually free up memory
-        torch.cuda.empty_cache()
+        if torch.cuda.memory_reserved() > 0.8 * torch.cuda.get_device_properties(0).total_memory:
+            torch.cuda.empty_cache()
 
         return detections, annotated_frame
 
@@ -176,7 +184,6 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
         await self.connection.close()
 
     async def process_frame_with_yolo(self, frame):
-        # Ensure the frame is in the right format and then process it on the GPU(s)
         results = model(frame)
         detections = []
         for *xyxy, conf, cls in results.xyxy[0]:
@@ -190,8 +197,8 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
             })
         annotated_frame = results.render()[0]
 
-        # Manually free up memory
-        torch.cuda.empty_cache()
+        if torch.cuda.memory_reserved() > 0.8 * torch.cuda.get_device_properties(0).total_memory:
+            torch.cuda.empty_cache()
 
         return detections, annotated_frame
 
@@ -313,7 +320,6 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
             print(f"Uploaded video with ID {uploaded_video_id} not found.")
 
     async def process_frame_with_yolo(self, frame):
-        # Ensure the frame is in the right format and then process it on the GPU(s)
         results = model(frame)
         detections = []
         for *xyxy, conf, cls in results.xyxy[0]:
@@ -326,6 +332,10 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
                 "bbox": bbox
             })
         annotated_frame = results.render()[0]
+
+        if torch.cuda.memory_reserved() > 0.8 * torch.cuda.get_device_properties(0).total_memory:
+            torch.cuda.empty_cache()
+
         return detections, annotated_frame
 
     @database_sync_to_async
