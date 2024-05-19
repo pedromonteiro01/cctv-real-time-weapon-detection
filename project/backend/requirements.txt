@@ -22,3 +22,4 @@ selenium
 daphne
 django-rest-swagger
 django-silk
+django-prometheus

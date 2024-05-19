@@ -17,7 +17,7 @@ const Database = () => {
             </div>
             <div className='database-images-grid'>
                 {isLoading ? (
-                    <div className="loader-container">
+                    <div className="loader-container" data-testid="loader">
                         <ClipLoader color="#ffffff" />
                     </div>
                 ) : (

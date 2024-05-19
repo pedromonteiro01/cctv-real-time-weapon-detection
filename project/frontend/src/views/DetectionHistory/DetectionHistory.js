@@ -37,9 +37,9 @@ const DetectionHistory = () => {
     const closeDetectionFrame = () => setShowModal(false);
 
     return (
-        <div className="table-container-wrapper">
+        <div className="table-container-wrapper" data-test-id="detection-history">
             {isLoading ? (
-                <div className="spinner-container">
+                <div className="spinner-container" data-test-id="loader">
                     <ClipLoader color='#fff' />
                 </div>
             ) : (
@@ -51,13 +51,13 @@ const DetectionHistory = () => {
                         <DetectionHistoryTableHeader />
                         <tbody>
                             {detections.map((record, index) => (
-                                <DetectionHistoryTableRow key={index} record={record} onOpenFrame={openDetectionFrame} />
+                                <DetectionHistoryTableRow key={index} record={record} onOpenFrame={openDetectionFrame} data-test-id={`record-${index}`} />
                             ))}
                         </tbody>
                     </table>
                 </>
             )}
-            {showModal && <Modal frame={selectedFrame} closeModal={closeDetectionFrame} />}
+            {showModal && <Modal frame={selectedFrame} closeModal={closeDetectionFrame} data-test-id="modal" />}
         </div>
     );
 };
