@@ -58,8 +58,8 @@ def main():
         '3': 2,
     }
     camera_sources = {
-        '1': ['./media/sample.mp4'],
-        '2': ['./media/sample.mp4'],
+        '1': ['./media/gun-video.mp4'],
+        '2': ['./media/no-gun-video.mp4'],
         '3': ['./media/sample.mp4'],
     }
 

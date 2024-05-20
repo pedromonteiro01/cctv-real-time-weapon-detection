@@ -43,16 +43,6 @@ const DetectionFrame = ({ onWeaponDetected }) => {
                 processedDetections.current.add(data.detection_id);  // Mark detection as processed
 
                 data.detections.forEach((detection) => {
-                    const message = `Detection: ${detection.label} with ${Math.round(detection.confidence * 100)}% confidence`;
-                    toast(message, {
-                        icon: '🚨',
-                        style: {
-                            border: '1px solid #ff0000',
-                            padding: '16px',
-                            color: '#ff0000',
-                        },
-                    });
-
                     onWeaponDetected({
                         camera: data.camera_id,
                         weaponType: detection.label,

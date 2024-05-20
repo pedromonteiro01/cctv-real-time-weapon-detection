@@ -36,8 +36,10 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
         if self.camera_details:
             await self.accept()
             self.connection_open = True
+            self.connection_closed = False  # Initialize the attribute here
             self.connection = await self.create_rabbitmq_connection()
             self.frame_buffer = deque(maxlen=10)
+            self.processing_frame = False  # Initialize the attribute here
             asyncio.create_task(self.listen_to_rabbitmq(self.camera_id))
         else:
             await self.close(code=4404)
@@ -125,6 +127,7 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
         if hasattr(self, 'connection') and self.connection:
             await self.connection.close()
         self.connection_open = False
+        self.connection_closed = True  # Set the attribute here
 
 class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
