@@ -10,17 +10,18 @@ def encode_frame(frame, width=640, height=360):
     _, buffer = cv2.imencode('.jpg', frame)
     return base64.b64encode(buffer).decode('utf-8')
 
-def send_frame_to_queue(channel, queue_name, frame_base64, camera_id, user_id):
+def send_frame_to_queue(channel, queue_name, frame_base64, camera_id, user_id, analyze=False):
     message_payload = {
         'camera_id': camera_id,
         'user_id': user_id,
         'frame': frame_base64,
         'timestamp': int(time.time() * 1000),
+        'analyze': analyze,
     }
     channel.basic_publish(exchange='',
                           routing_key=queue_name,
                           body=json.dumps(message_payload))
-    print(f"Published frame from Camera {camera_id} to queue {queue_name}")
+    print(f"Published frame from Camera {camera_id} to queue {queue_name}, analyze: {analyze}")
 
 def process_video(camera_id, video_path, connection_parameters, user_id, frame_rate=10):
     connection = pika.BlockingConnection(connection_parameters)
@@ -32,21 +33,33 @@ def process_video(camera_id, video_path, connection_parameters, user_id, frame_r
     fps = int(cap.get(cv2.CAP_PROP_FPS))  # get the FPS of the video
     delay = 1 / frame_rate  # set delay based on target frame rate
 
-    while cap.isOpened():
-        start_time = time.time()
-        ret, frame = cap.read()
-        if not ret:
-            break
-        frame_base64 = encode_frame(frame)
-        send_frame_to_queue(channel, queue_name, frame_base64, camera_id, user_id)
+    analyze_interval = 1  # seconds
+    last_analyze_time = time.time()
 
-        # compute remaining time to wait to maintain the desired frame rate
-        process_time = time.time() - start_time
-        wait_time = max(0, delay - process_time)
-        time.sleep(wait_time)
+    try:
+        while cap.isOpened():
+            start_time = time.time()
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-    cap.release()
-    connection.close()
+            current_time = time.time()
+            analyze = (current_time - last_analyze_time) >= analyze_interval
+
+            if analyze:
+                last_analyze_time = current_time
+
+            frame_base64 = encode_frame(frame)
+            send_frame_to_queue(channel, queue_name, frame_base64, camera_id, user_id, analyze)
+
+            # compute remaining time to wait to maintain the desired frame rate
+            process_time = time.time() - start_time
+            wait_time = max(0, delay - process_time)
+            time.sleep(wait_time)
+    finally:
+        cap.release()
+        connection.close()
+        print(f"Released video capture and closed connection for camera {camera_id}")
 
 def main():
     rabbitmq_server = 'localhost'
@@ -58,8 +71,8 @@ def main():
         '3': 2,
     }
     camera_sources = {
-        '1': ['./media/gun-video.mp4'],
-        '2': ['./media/no-gun-video.mp4'],
+        '1': ['./media/sample.mp4'],
+        '2': ['./media/sample.mp4'],
         '3': ['./media/sample.mp4'],
     }
 

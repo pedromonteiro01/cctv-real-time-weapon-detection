@@ -1,3 +1,4 @@
+# (Other imports remain unchanged)
 import asyncio
 from collections import deque
 import json
@@ -60,20 +61,23 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
 
             async for message in queue:
                 async with message.process():
-                    if not self.processing_frame:
-                        self.processing_frame = True
-                        frame_data = base64.b64decode(json.loads(message.body.decode())['frame'])
-                        frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
-                        self.frame_buffer.append(frame)
-                        await self.process_next_frame()
+                    frame_data = base64.b64decode(json.loads(message.body.decode())['frame'])
+                    frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
+                    self.frame_buffer.append((frame, json.loads(message.body.decode())['analyze']))
+                    await self.process_next_frame()
 
     async def process_next_frame(self):
         if self.frame_buffer and not self.connection_closed:
-            frame = self.frame_buffer.popleft()
-            detections, annotated_frame = await self.process_frame_with_yolo(frame)
-            _, buffer = cv2.imencode('.jpg', annotated_frame)
-            frame_base64 = base64.b64encode(buffer).decode('utf-8')
-            await self.send_frame_to_websocket(detections, frame_base64)
+            frame, analyze = self.frame_buffer.popleft()
+            if analyze:
+                detections, annotated_frame = await self.process_frame_with_yolo(frame)
+                _, buffer = cv2.imencode('.jpg', annotated_frame)
+                frame_base64 = base64.b64encode(buffer).decode('utf-8')
+                await self.send_frame_to_websocket(detections, frame_base64)
+            else:
+                _, buffer = cv2.imencode('.jpg', frame)
+                frame_base64 = base64.b64encode(buffer).decode('utf-8')
+                await self.send_frame_to_websocket([], frame_base64)
             self.processing_frame = False
             # Trigger processing next frame if buffer is not empty
             if self.frame_buffer:
@@ -158,11 +162,15 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
         async with message.process():
             frame_data = base64.b64decode(json.loads(message.body.decode())['frame'])
             frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
-            detections, annotated_frame = await self.process_frame_with_yolo(frame)
+            analyze = json.loads(message.body.decode())['analyze']
+            if analyze:
+                detections, annotated_frame = await self.process_frame_with_yolo(frame)
+                _, buffer = cv2.imencode('.jpg', annotated_frame)
+            else:
+                detections = []
+                _, buffer = cv2.imencode('.jpg', frame)
 
-            _, buffer = cv2.imencode('.jpg', annotated_frame)
             frame_base64 = base64.b64encode(buffer).decode('utf-8')
-
             await self.send_frame_to_websocket(detections, frame_base64, camera)
 
     async def send_frame_to_websocket(self, detections, frame_base64, camera):
