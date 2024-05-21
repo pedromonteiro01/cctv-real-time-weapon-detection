@@ -28,7 +28,6 @@ const CameraStream = ({ camera, frameSrc }) => {
         <div className="database-image" onClick={handleCameraClick} style={{ cursor: 'pointer' }}>
             <TopFrameOverlay {...camera} showDetections={true} />
             <canvas ref={canvasRef} style={{ width: '100%', height: 'auto' }} />
-            <div className="camera-timestamp">{camera.dateTime}</div>
         </div>
     );
 };

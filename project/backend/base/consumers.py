@@ -1,7 +1,7 @@
-# (Other imports remain unchanged)
 import asyncio
 from collections import deque
 import json
+import aio_pika
 from channels.generic.websocket import AsyncWebsocketConsumer
 from datetime import datetime
 import torch
@@ -33,15 +33,16 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.camera_id = self.scope['url_route']['kwargs']['camera_id']
         self.camera_details = await self.get_camera_details(self.camera_id)
+        self.rabbitmq_task = None
 
         if self.camera_details:
             await self.accept()
             self.connection_open = True
-            self.connection_closed = False  # Initialize the attribute here
+            self.connection_closed = False
             self.connection = await self.create_rabbitmq_connection()
             self.frame_buffer = deque(maxlen=10)
-            self.processing_frame = False  # Initialize the attribute here
-            asyncio.create_task(self.listen_to_rabbitmq(self.camera_id))
+            self.processing_frame = False
+            self.rabbitmq_task = asyncio.create_task(self.listen_to_rabbitmq(self.camera_id))
         else:
             await self.close(code=4404)
 
@@ -49,15 +50,21 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
         rabbitmq_server = 'localhost'
         rabbitmq_username = 'user'
         rabbitmq_password = 'password'
-        return await connect_robust(
+        connection = await connect_robust(
             f"amqp://{rabbitmq_username}:{rabbitmq_password}@{rabbitmq_server}/"
         )
+        return connection
 
     async def listen_to_rabbitmq(self, camera_id):
         async with self.connection:
             channel = await self.connection.channel()
+            await channel.set_qos(prefetch_count=10)
+            exchange_name = 'camera_exchange'
             queue_name = f"camera_stream_{camera_id}"
+
+            await channel.declare_exchange(exchange_name, aio_pika.ExchangeType.DIRECT)
             queue = await channel.declare_queue(queue_name, durable=True)
+            await queue.bind(exchange_name, routing_key=queue_name)
 
             async for message in queue:
                 async with message.process():
@@ -67,7 +74,8 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
                     await self.process_next_frame()
 
     async def process_next_frame(self):
-        if self.frame_buffer and not self.connection_closed:
+        if self.frame_buffer and not self.processing_frame:
+            self.processing_frame = True
             frame, analyze = self.frame_buffer.popleft()
             if analyze:
                 detections, annotated_frame = await self.process_frame_with_yolo(frame)
@@ -79,7 +87,6 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
                 frame_base64 = base64.b64encode(buffer).decode('utf-8')
                 await self.send_frame_to_websocket([], frame_base64)
             self.processing_frame = False
-            # Trigger processing next frame if buffer is not empty
             if self.frame_buffer:
                 await self.process_next_frame()
 
@@ -128,20 +135,27 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
             return None
 
     async def disconnect(self, close_code):
+        if self.rabbitmq_task:
+            self.rabbitmq_task.cancel()
+            try:
+                await self.rabbitmq_task
+            except asyncio.CancelledError:
+                pass
         if hasattr(self, 'connection') and self.connection:
             await self.connection.close()
         self.connection_open = False
-        self.connection_closed = True  # Set the attribute here
+        self.connection_closed = True
 
 class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.camera_timestamps = {}
+        self.rabbitmq_tasks = []
 
     async def connect(self):
         authToken = self.scope['url_route']['kwargs']['token']
         self.user = await self.get_user(authToken)
-        
+
         if not self.user:
             await self.close(code=4403)
         else:
@@ -149,12 +163,17 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
             self.cameras = await self.get_user_cameras()
             self.connection = await self.create_rabbitmq_connection()
             self.channel = await self.connection.channel()
-            await asyncio.gather(*[self.listen_to_rabbitmq(camera) for camera in self.cameras])
+            await self.channel.set_qos(prefetch_count=10)
+            self.rabbitmq_tasks = [asyncio.create_task(self.listen_to_rabbitmq(camera)) for camera in self.cameras]
 
     async def listen_to_rabbitmq(self, camera):
+        exchange_name = 'camera_exchange'
         queue_name = f"camera_stream_{camera['id']}"
+
+        await self.channel.declare_exchange(exchange_name, aio_pika.ExchangeType.DIRECT)
         queue = await self.channel.declare_queue(queue_name, durable=True)
-        
+        await queue.bind(exchange_name, routing_key=queue_name)
+
         async for message in queue:
             await self.handle_message(message, camera)
 
@@ -174,7 +193,7 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
             await self.send_frame_to_websocket(detections, frame_base64, camera)
 
     async def send_frame_to_websocket(self, detections, frame_base64, camera):
-        timestamp = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ')  # ISO 8601 format
+        timestamp = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ')
         self.camera_timestamps[camera["id"]] = timestamp
 
         try:
@@ -184,7 +203,7 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
                 'timestamp': timestamp,
                 'frame': frame_base64,
                 'detections': detections,
-                'detection_id': str(uuid.uuid4())  # Generate a unique detection ID
+                'detection_id': str(uuid.uuid4())
             }))
         except Exception as e:
             print(f"Error sending frame to websocket: {e}")
@@ -192,7 +211,14 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
             torch.cuda.empty_cache()
 
     async def disconnect(self, close_code):
-        await self.connection.close()
+        for task in self.rabbitmq_tasks:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        if hasattr(self, 'connection') and self.connection:
+            await self.connection.close()
 
     async def process_frame_with_yolo(self, frame):
         results = model(frame)
@@ -231,9 +257,10 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
         rabbitmq_server = 'localhost'
         rabbitmq_username = 'user'
         rabbitmq_password = 'password'
-        return await connect_robust(
+        connection = await connect_robust(
             f"amqp://{rabbitmq_username}:{rabbitmq_password}@{rabbitmq_server}/"
         )
+        return connection
     
 class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
     async def connect(self):

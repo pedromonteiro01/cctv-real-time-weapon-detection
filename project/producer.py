@@ -10,7 +10,7 @@ def encode_frame(frame, width=640, height=360):
     _, buffer = cv2.imencode('.jpg', frame)
     return base64.b64encode(buffer).decode('utf-8')
 
-def send_frame_to_queue(channel, queue_name, frame_base64, camera_id, user_id, analyze=False):
+def send_frame_to_queue(channel, exchange_name, routing_key, frame_base64, camera_id, user_id, analyze=False):
     message_payload = {
         'camera_id': camera_id,
         'user_id': user_id,
@@ -18,16 +18,19 @@ def send_frame_to_queue(channel, queue_name, frame_base64, camera_id, user_id, a
         'timestamp': int(time.time() * 1000),
         'analyze': analyze,
     }
-    channel.basic_publish(exchange='',
-                          routing_key=queue_name,
+    channel.basic_publish(exchange=exchange_name,
+                          routing_key=routing_key,
                           body=json.dumps(message_payload))
-    print(f"Published frame from Camera {camera_id} to queue {queue_name}, analyze: {analyze}")
+    print(f"Published frame from Camera {camera_id} to exchange {exchange_name}, analyze: {analyze}")
 
 def process_video(camera_id, video_path, connection_parameters, user_id, frame_rate=10):
     connection = pika.BlockingConnection(connection_parameters)
     channel = connection.channel()
-    queue_name = f"camera_stream_{camera_id}"
-    channel.queue_declare(queue=queue_name, durable=True)
+
+    exchange_name = 'camera_exchange'
+    routing_key = f"camera_stream_{camera_id}"
+
+    channel.exchange_declare(exchange=exchange_name, exchange_type='direct')
 
     cap = cv2.VideoCapture(video_path)
     fps = int(cap.get(cv2.CAP_PROP_FPS))  # get the FPS of the video
@@ -50,7 +53,7 @@ def process_video(camera_id, video_path, connection_parameters, user_id, frame_r
                 last_analyze_time = current_time
 
             frame_base64 = encode_frame(frame)
-            send_frame_to_queue(channel, queue_name, frame_base64, camera_id, user_id, analyze)
+            send_frame_to_queue(channel, exchange_name, routing_key, frame_base64, camera_id, user_id, analyze)
 
             # compute remaining time to wait to maintain the desired frame rate
             process_time = time.time() - start_time
