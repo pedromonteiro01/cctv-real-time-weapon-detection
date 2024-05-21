@@ -9,9 +9,11 @@ export const WebSocketProvider = ({ children, authToken }) => {
     const ws = useRef(null);
     const isMounted = useRef(true);
     const processedDetections = useRef(new Set());
+    const workerRef = useRef(null);
 
     useEffect(() => {
         isMounted.current = true;
+        workerRef.current = new Worker(new URL('./frameWorker.js', import.meta.url));
 
         if (!authToken) {
             console.error("authToken is undefined!");
@@ -77,17 +79,23 @@ export const WebSocketProvider = ({ children, authToken }) => {
                     });
                 }
 
-                setCameras(prev => ({
-                    ...prev,
-                    [data.camera_id]: {
-                        id: data.camera_id,
-                        ...prev[data.camera_id],
-                        location: data.location,
-                        frameSrc: `data:image/jpeg;base64,${data.frame}`,
-                        dateTime: dateTime,
-                        detections: (prev[data.camera_id]?.detections || 0) + detections,
-                    },
-                }));
+                if (workerRef.current) {
+                    workerRef.current.postMessage({ frame: data.frame, mime: 'image/jpeg' });
+
+                    workerRef.current.onmessage = (e) => {
+                        setCameras(prev => ({
+                            ...prev,
+                            [data.camera_id]: {
+                                id: data.camera_id,
+                                ...prev[data.camera_id],
+                                location: data.location,
+                                frameSrc: e.data,
+                                dateTime: dateTime,
+                                detections: (prev[data.camera_id]?.detections || 0) + detections,
+                            },
+                        }));
+                    };
+                }
                 setIsLoading(false);
             }
         };
@@ -101,6 +109,9 @@ export const WebSocketProvider = ({ children, authToken }) => {
             isMounted.current = false;
             if (ws.current) {
                 ws.current.close();
+            }
+            if (workerRef.current) {
+                workerRef.current.terminate();
             }
         };
     }, [authToken]);

@@ -19,6 +19,7 @@ const DetectionFrame = ({ onWeaponDetected }) => {
     const ws = useRef(null);
     const isMounted = useRef(true);
     const processedDetections = useRef(new Set());
+    const workerRef = useRef(null);
 
     const connectWebSocket = () => {
         ws.current = new WebSocket(`ws://localhost:8080/ws/video/${cameraId}/?timestamp=${timestamp}`);
@@ -54,14 +55,8 @@ const DetectionFrame = ({ onWeaponDetected }) => {
                 });
             }
 
-            if (data.frame && canvasRef.current) {
-                const context = canvasRef.current.getContext('2d');
-                const blob = base64ToBlob(data.frame, 'image/jpeg');
-                const image = new Image();
-                image.onload = () => {
-                    context.drawImage(image, 0, 0, canvasRef.current.width, canvasRef.current.height);
-                };
-                image.src = URL.createObjectURL(blob);
+            if (data.frame && canvasRef.current && workerRef.current) {
+                workerRef.current.postMessage({ frame: data.frame, mime: 'image/jpeg' });
             }
         };
 
@@ -79,6 +74,19 @@ const DetectionFrame = ({ onWeaponDetected }) => {
 
     useEffect(() => {
         isMounted.current = true;
+        workerRef.current = new Worker(new URL('./frameWorker.js', import.meta.url));
+        
+        workerRef.current.onmessage = (e) => {
+            if (canvasRef.current) {
+                const context = canvasRef.current.getContext('2d');
+                const image = new Image();
+                image.onload = () => {
+                    context.drawImage(image, 0, 0, canvasRef.current.width, canvasRef.current.height);
+                };
+                image.src = e.data;
+            }
+        };
+
         connectWebSocket();
 
         return () => {
@@ -86,18 +94,11 @@ const DetectionFrame = ({ onWeaponDetected }) => {
             if (ws.current) {
                 ws.current.close();
             }
+            if (workerRef.current) {
+                workerRef.current.terminate();
+            }
         };
     }, [cameraId, timestamp]);
-
-    const base64ToBlob = (base64, mime) => {
-        const byteCharacters = atob(base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        return new Blob([byteArray], { type: mime });
-    };
 
     const toggleExpandVideo = () => {
         setIsExpanded(!isExpanded);
