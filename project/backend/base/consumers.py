@@ -74,7 +74,7 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
                     frame_data = base64.b64decode(json.loads(message.body.decode())['frame'])
                     frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
                     self.frame_buffer.append((frame, json.loads(message.body.decode())['analyze']))
-                    await self.process_next_frame()
+                    asyncio.create_task(self.process_next_frame())
 
     async def process_next_frame(self):
         if self.frame_buffer and not self.processing_frame:
@@ -91,7 +91,7 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
                 await self.send_frame_to_websocket([], frame_base64)
             self.processing_frame = False
             if self.frame_buffer:
-                await self.process_next_frame()
+                asyncio.create_task(self.process_next_frame())
 
     async def send_frame_to_websocket(self, detections, frame_base64):
         timestamp = datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%fZ')  # ISO 8601 format
@@ -179,7 +179,7 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
         await queue.bind(exchange_name, routing_key=queue_name)
 
         async for message in queue:
-            await self.handle_message(message, camera)
+            asyncio.create_task(self.handle_message(message, camera))
 
     async def handle_message(self, message, camera):
         async with message.process():
