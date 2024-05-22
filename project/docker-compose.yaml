@@ -38,7 +38,7 @@ services:
       RABBITMQ_DEFAULT_USER: user
       RABBITMQ_DEFAULT_PASS: password
     ports:
-      - "5672:5672"
+      - "5673:5672"
       - "15672:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
@@ -72,14 +72,6 @@ services:
       - "3001:3000"
     depends_on:
       - prometheus
-
-  nginx-exporter:
-    image: nginx/nginx-prometheus-exporter:latest
-    command: -nginx.scrape_uri=http://nginx:8080/stub_status
-    ports:
-      - "9113:9113"
-    depends_on:
-      - nginx
 
 volumes:
   mysql-data:

@@ -6,11 +6,15 @@ import time
 import threading
 
 def encode_frame(frame, width=640, height=360):
+    if frame is None:
+        return None
     frame = cv2.resize(frame, (width, height))
     _, buffer = cv2.imencode('.jpg', frame)
     return base64.b64encode(buffer).decode('utf-8')
 
 def send_frame_to_queue(channel, exchange_name, routing_key, frame_base64, camera_id, user_id, analyze=False):
+    if frame_base64 is None:
+        return
     message_payload = {
         'camera_id': camera_id,
         'user_id': user_id,
@@ -24,22 +28,22 @@ def send_frame_to_queue(channel, exchange_name, routing_key, frame_base64, camer
     print(f"Published frame from Camera {camera_id} to exchange {exchange_name}, analyze: {analyze}")
 
 def process_video(camera_id, video_path, connection_parameters, user_id, frame_rate=10):
-    connection = pika.BlockingConnection(connection_parameters)
-    channel = connection.channel()
-
-    exchange_name = 'camera_exchange'
-    routing_key = f"camera_stream_{camera_id}"
-
-    channel.exchange_declare(exchange=exchange_name, exchange_type='direct')
-
-    cap = cv2.VideoCapture(video_path)
-    fps = int(cap.get(cv2.CAP_PROP_FPS))  # get the FPS of the video
-    delay = 1 / frame_rate  # set delay based on target frame rate
-
-    analyze_interval = 1  # seconds
-    last_analyze_time = time.time()
-
     try:
+        connection = pika.BlockingConnection(connection_parameters)
+        channel = connection.channel()
+
+        exchange_name = 'camera_exchange'
+        routing_key = f"camera_stream_{camera_id}"
+
+        channel.exchange_declare(exchange=exchange_name, exchange_type='direct')
+
+        cap = cv2.VideoCapture(video_path)
+        fps = int(cap.get(cv2.CAP_PROP_FPS))  # get the FPS of the video
+        delay = 1 / frame_rate  # set delay based on target frame rate
+
+        analyze_interval = 1  # seconds
+        last_analyze_time = time.time()
+
         while cap.isOpened():
             start_time = time.time()
             ret, frame = cap.read()
@@ -59,6 +63,8 @@ def process_video(camera_id, video_path, connection_parameters, user_id, frame_r
             process_time = time.time() - start_time
             wait_time = max(0, delay - process_time)
             time.sleep(wait_time)
+    except Exception as e:
+        print(f"Error processing video for camera {camera_id}: {e}")
     finally:
         cap.release()
         connection.close()
@@ -74,14 +80,15 @@ def main():
         '3': 2,
     }
     camera_sources = {
-        '1': ['./media/sample.mp4'],
-        '2': ['./media/sample.mp4'],
+        '1': ['./media/gun-video.mp4'],
+        '2': ['./media/no-gun-video.mp4'],
         '3': ['./media/sample.mp4'],
     }
 
     credentials = pika.PlainCredentials(rabbitmq_username, rabbitmq_password)
     connection_parameters = pika.ConnectionParameters(
         host=rabbitmq_server,
+        port=5673,  # Use the correct port
         credentials=credentials
     )
 

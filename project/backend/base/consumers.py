@@ -17,6 +17,7 @@ import os
 from django.core.files import File
 import uuid
 from asgiref.sync import sync_to_async
+from concurrent.futures import ThreadPoolExecutor
 
 from torch.nn.parallel import DataParallel
 
@@ -28,6 +29,8 @@ model = torch.hub.load('ultralytics/yolov5', 'custom', path='base/best.pt').to(d
 if torch.cuda.device_count() > 1:
     print(f"Using {torch.cuda.device_count()} GPUs!")
     model = DataParallel(model)
+
+executor = ThreadPoolExecutor(max_workers=4)
 
 class VideoStreamConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -51,7 +54,7 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
         rabbitmq_username = 'user'
         rabbitmq_password = 'password'
         connection = await connect_robust(
-            f"amqp://{rabbitmq_username}:{rabbitmq_password}@{rabbitmq_server}/"
+            f"amqp://{rabbitmq_username}:{rabbitmq_password}@{rabbitmq_server}:5673/"
         )
         return connection
 
@@ -107,7 +110,8 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
             torch.cuda.empty_cache()
 
     async def process_frame_with_yolo(self, frame):
-        results = model(frame)
+        loop = asyncio.get_event_loop()
+        results = await loop.run_in_executor(executor, model, frame)
         detections = []
         for *xyxy, conf, cls in results.xyxy[0]:
             label = model.module.names[int(cls)] if torch.cuda.device_count() > 1 else model.names[int(cls)]
@@ -221,7 +225,8 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
             await self.connection.close()
 
     async def process_frame_with_yolo(self, frame):
-        results = model(frame)
+        loop = asyncio.get_event_loop()
+        results = await loop.run_in_executor(executor, model, frame)
         detections = []
         for *xyxy, conf, cls in results.xyxy[0]:
             label = model.module.names[int(cls)] if torch.cuda.device_count() > 1 else model.names[int(cls)]
@@ -258,7 +263,7 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
         rabbitmq_username = 'user'
         rabbitmq_password = 'password'
         connection = await connect_robust(
-            f"amqp://{rabbitmq_username}:{rabbitmq_password}@{rabbitmq_server}/"
+            f"amqp://{rabbitmq_username}:{rabbitmq_password}@{rabbitmq_server}:5673/"
         )
         return connection
     
@@ -358,7 +363,8 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
             print(f"Uploaded video with ID {uploaded_video_id} not found.")
 
     async def process_frame_with_yolo(self, frame):
-        results = model(frame)
+        loop = asyncio.get_event_loop()
+        results = await loop.run_in_executor(executor, model, frame)
         detections = []
         for *xyxy, conf, cls in results.xyxy[0]:
             label = model.module.names[int(cls)] if torch.cuda.device_count() > 1 else model.names[int(cls)]
