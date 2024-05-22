@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 
 export const WebSocketContext = createContext();
@@ -83,17 +83,17 @@ export const WebSocketProvider = ({ children, authToken }) => {
                     workerRef.current.postMessage({ frame: data.frame, mime: 'image/jpeg' });
 
                     workerRef.current.onmessage = (e) => {
-                        setCameras(prev => ({
-                            ...prev,
-                            [data.camera_id]: {
+                        setCameras(prev => {
+                            const updatedCamera = {
                                 id: data.camera_id,
                                 ...prev[data.camera_id],
                                 location: data.location,
                                 frameSrc: e.data,
                                 dateTime: dateTime,
                                 detections: (prev[data.camera_id]?.detections || 0) + detections,
-                            },
-                        }));
+                            };
+                            return { ...prev, [data.camera_id]: updatedCamera };
+                        });
                     };
                 }
                 setIsLoading(false);

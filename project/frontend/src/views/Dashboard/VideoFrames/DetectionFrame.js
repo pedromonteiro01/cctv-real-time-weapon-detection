@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import './DetectionFrame.css';
 import ControllButton from '../../../components/ControllButton/ControllButton';
 import { CgMaximizeAlt, CgController, CgClose } from "react-icons/cg";
@@ -21,7 +21,7 @@ const DetectionFrame = ({ onWeaponDetected }) => {
     const processedDetections = useRef(new Set());
     const workerRef = useRef(null);
 
-    const connectWebSocket = () => {
+    const connectWebSocket = useCallback(() => {
         ws.current = new WebSocket(`ws://localhost:8080/ws/video/${cameraId}/?timestamp=${timestamp}`);
 
         ws.current.onopen = () => {
@@ -33,12 +33,13 @@ const DetectionFrame = ({ onWeaponDetected }) => {
 
             if (!isMounted.current) return;
 
-            setCameraInfo({
-                id: data.camera_id || cameraInfo.id,
-                location: data.location || cameraInfo.location,
+            setCameraInfo(prevInfo => ({
+                ...prevInfo,
+                id: data.camera_id || prevInfo.id,
+                location: data.location || prevInfo.location,
                 day: new Date(data.timestamp).toLocaleDateString(),
                 hour: new Date(data.timestamp).toLocaleTimeString()
-            });
+            }));
 
             if (data.detections && data.detections.length > 0 && !processedDetections.current.has(data.detection_id)) {
                 processedDetections.current.add(data.detection_id);  // Mark detection as processed
@@ -70,7 +71,7 @@ const DetectionFrame = ({ onWeaponDetected }) => {
                 setTimeout(() => connectWebSocket(), 1000);
             }
         };
-    };
+    }, [cameraId, timestamp, onWeaponDetected]);
 
     useEffect(() => {
         isMounted.current = true;
@@ -98,11 +99,11 @@ const DetectionFrame = ({ onWeaponDetected }) => {
                 workerRef.current.terminate();
             }
         };
-    }, [cameraId, timestamp]);
+    }, [connectWebSocket]);
 
-    const toggleExpandVideo = () => {
-        setIsExpanded(!isExpanded);
-    };
+    const toggleExpandVideo = useCallback(() => {
+        setIsExpanded(prev => !prev);
+    }, []);
 
     return (
         <div className={`video-frame ${isExpanded ? 'expanded' : ''}`}>
