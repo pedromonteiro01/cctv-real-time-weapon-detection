@@ -66,13 +66,13 @@ def main():
     rabbitmq_username = 'user'
     rabbitmq_password = 'password'
     camera_user_map = {
-        '1': 1,
-        #'2': 1,
+        #'1': 1,
+        '2': 1,
         #'3': 2,
     }
     camera_sources = {
-        '1': ['./media/gun-video.mp4'],
-        #'2': ['./media/no-gun-video.mp4'],
+        #'1': ['./media/gun-video.mp4'],
+        '2': ['./media/gun-video.mp4'],
         #'3': ['./media/sample.mp4'],
     }
 
