@@ -43,7 +43,7 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
             self.connection_open = True
             self.connection_closed = False
             self.connection = await self.create_rabbitmq_connection()
-            self.frame_buffer = deque(maxlen=10)
+            self.frame_buffer = deque(maxlen=100)
             self.processing_frame = False
             self.rabbitmq_task = asyncio.create_task(self.listen_to_rabbitmq(self.camera_id))
         else:
@@ -79,16 +79,20 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
     async def process_next_frame(self):
         if self.frame_buffer and not self.processing_frame:
             self.processing_frame = True
-            frame, analyze = self.frame_buffer.popleft()
-            if analyze:
-                detections, annotated_frame = await self.process_frame_with_yolo(frame)
-                _, buffer = cv2.imencode('.jpg', annotated_frame)
-                frame_base64 = base64.b64encode(buffer).decode('utf-8')
-                await self.send_frame_to_websocket(detections, frame_base64)
-            else:
-                _, buffer = cv2.imencode('.jpg', frame)
-                frame_base64 = base64.b64encode(buffer).decode('utf-8')
-                await self.send_frame_to_websocket([], frame_base64)
+            frames_to_process = []
+
+            while self.frame_buffer and len(frames_to_process) < 10:  # Process up to 10 frames at a time
+                frames_to_process.append(self.frame_buffer.popleft())
+
+            if frames_to_process:
+                frames, analyze_flags = zip(*frames_to_process)
+                detections_list, annotated_frames = await self.process_frames_with_yolo(frames, analyze_flags)
+
+                for detections, annotated_frame in zip(detections_list, annotated_frames):
+                    _, buffer = cv2.imencode('.jpg', annotated_frame)
+                    frame_base64 = base64.b64encode(buffer).decode('utf-8')
+                    await self.send_frame_to_websocket(detections, frame_base64)
+
             self.processing_frame = False
             if self.frame_buffer:
                 asyncio.create_task(self.process_next_frame())
@@ -109,25 +113,35 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
         finally:
             torch.cuda.empty_cache()
 
-    async def process_frame_with_yolo(self, frame):
+    async def process_frames_with_yolo(self, frames, analyze_flags):
         loop = asyncio.get_event_loop()
-        results = await loop.run_in_executor(executor, model, frame)
-        detections = []
-        for *xyxy, conf, cls in results.xyxy[0]:
-            label = model.module.names[int(cls)] if torch.cuda.device_count() > 1 else model.names[int(cls)]
-            bbox = [float(coord) for coord in xyxy]
-            confidence = float(conf)
-            detections.append({
-                "label": label,
-                "confidence": confidence,
-                "bbox": bbox
-            })
-        annotated_frame = results.render()[0]
+        results = [await loop.run_in_executor(executor, model, frame) for frame in frames]
+        detections_list = []
+        annotated_frames = []
+
+        for frame, analyze, result in zip(frames, analyze_flags, results):
+            detections = []
+            if analyze:
+                for *xyxy, conf, cls in result.xyxy[0]:
+                    label = model.module.names[int(cls)] if torch.cuda.device_count() > 1 else model.names[int(cls)]
+                    bbox = [float(coord) for coord in xyxy]
+                    confidence = float(conf)
+                    detections.append({
+                        "label": label,
+                        "confidence": confidence,
+                        "bbox": bbox
+                    })
+                annotated_frame = result.render()[0]
+            else:
+                annotated_frame = frame
+
+            detections_list.append(detections)
+            annotated_frames.append(annotated_frame)
 
         if torch.cuda.memory_reserved() > 0.8 * torch.cuda.get_device_properties(0).total_memory:
             torch.cuda.empty_cache()
 
-        return detections, annotated_frame
+        return detections_list, annotated_frames
 
     @database_sync_to_async
     def get_camera_details(self, camera_id):
@@ -187,7 +201,9 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
             frame = cv2.imdecode(np.frombuffer(frame_data, np.uint8), cv2.IMREAD_COLOR)
             analyze = json.loads(message.body.decode())['analyze']
             if analyze:
-                detections, annotated_frame = await self.process_frame_with_yolo(frame)
+                detections, annotated_frame = await self.process_frames_with_yolo([frame], [analyze])
+                detections = detections[0]
+                annotated_frame = annotated_frame[0]
                 _, buffer = cv2.imencode('.jpg', annotated_frame)
             else:
                 detections = []
@@ -224,25 +240,35 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
         if hasattr(self, 'connection') and self.connection:
             await self.connection.close()
 
-    async def process_frame_with_yolo(self, frame):
+    async def process_frames_with_yolo(self, frames, analyze_flags):
         loop = asyncio.get_event_loop()
-        results = await loop.run_in_executor(executor, model, frame)
-        detections = []
-        for *xyxy, conf, cls in results.xyxy[0]:
-            label = model.module.names[int(cls)] if torch.cuda.device_count() > 1 else model.names[int(cls)]
-            bbox = [float(coord) for coord in xyxy]
-            confidence = float(conf)
-            detections.append({
-                "label": label,
-                "confidence": confidence,
-                "bbox": bbox
-            })
-        annotated_frame = results.render()[0]
+        results = [await loop.run_in_executor(executor, model, frame) for frame in frames]
+        detections_list = []
+        annotated_frames = []
+
+        for frame, analyze, result in zip(frames, analyze_flags, results):
+            detections = []
+            if analyze:
+                for *xyxy, conf, cls in result.xyxy[0]:
+                    label = model.module.names[int(cls)] if torch.cuda.device_count() > 1 else model.names[int(cls)]
+                    bbox = [float(coord) for coord in xyxy]
+                    confidence = float(conf)
+                    detections.append({
+                        "label": label,
+                        "confidence": confidence,
+                        "bbox": bbox
+                    })
+                annotated_frame = result.render()[0]
+            else:
+                annotated_frame = frame
+
+            detections_list.append(detections)
+            annotated_frames.append(annotated_frame)
 
         if torch.cuda.memory_reserved() > 0.8 * torch.cuda.get_device_properties(0).total_memory:
             torch.cuda.empty_cache()
 
-        return detections, annotated_frame
+        return detections_list, annotated_frames
 
     @database_sync_to_async
     def get_user(self, token_key):
@@ -266,7 +292,7 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
             f"amqp://{rabbitmq_username}:{rabbitmq_password}@{rabbitmq_server}:5673/"
         )
         return connection
-    
+
 class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.uploaded_video_id = self.scope['url_route']['kwargs']['videoUploadId']
@@ -305,6 +331,8 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
         out = cv2.VideoWriter(temp_file_path, fourcc, fps, (width, height))
 
         frame_count = 0
+        frames_to_process = []
+
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
@@ -313,10 +341,31 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
             timestamp = frame_count / fps
             frame_count += 1
             print(f"Frame count: {frame_count}, Timestamp: {timestamp:.2f}s")
-            
-            detections, annotated_frame = await self.process_frame_with_yolo(frame)
-            out.write(annotated_frame)
+            frames_to_process.append((frame, timestamp))
 
+            if len(frames_to_process) >= 10:  # Process in batches of 10 frames
+                await self.process_and_send_frames(frames_to_process, out, uploaded_video_id)
+                frames_to_process = []
+
+        if frames_to_process:  # Process any remaining frames
+            await self.process_and_send_frames(frames_to_process, out, uploaded_video_id)
+
+        cap.release()
+        out.release()
+        await self.save_processed_video(uploaded_video_id, temp_file_path)
+        await self.mark_video_as_analyzed(uploaded_video_id)
+        await self.send(text_data=json.dumps({
+            'videoUploadId': uploaded_video_id,
+            'status': 'completed',
+            'analyzed': True
+        }))
+
+    async def process_and_send_frames(self, frames_to_process, out, uploaded_video_id):
+        frames, timestamps = zip(*frames_to_process)
+        detections_list, annotated_frames = await self.process_frames_with_yolo(frames, [True] * len(frames))
+
+        for detections, annotated_frame, timestamp in zip(detections_list, annotated_frames, timestamps):
+            out.write(annotated_frame)
             for det in detections:
                 det['timestamp'] = timestamp
 
@@ -328,17 +377,7 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
                 'detections': detections,
                 'frame': frame_base64,
             }))
-            await asyncio.sleep(1 / fps)
-
-        cap.release()
-        out.release()
-        await self.save_processed_video(uploaded_video_id, temp_file_path)
-        await self.mark_video_as_analyzed(uploaded_video_id)
-        await self.send(text_data=json.dumps({
-            'videoUploadId': uploaded_video_id,
-            'status': 'completed',
-            'analyzed': True
-        }))
+            await asyncio.sleep(0.1)
 
     def get_video_duration(self, video_path):
         cap = cv2.VideoCapture(video_path)
@@ -362,25 +401,35 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
         except UploadedVideo.DoesNotExist:
             print(f"Uploaded video with ID {uploaded_video_id} not found.")
 
-    async def process_frame_with_yolo(self, frame):
+    async def process_frames_with_yolo(self, frames, analyze_flags):
         loop = asyncio.get_event_loop()
-        results = await loop.run_in_executor(executor, model, frame)
-        detections = []
-        for *xyxy, conf, cls in results.xyxy[0]:
-            label = model.module.names[int(cls)] if torch.cuda.device_count() > 1 else model.names[int(cls)]
-            bbox = [float(coord) for coord in xyxy]
-            confidence = float(conf)
-            detections.append({
-                "label": label,
-                "confidence": confidence,
-                "bbox": bbox
-            })
-        annotated_frame = results.render()[0]
+        results = [await loop.run_in_executor(executor, model, frame) for frame in frames]
+        detections_list = []
+        annotated_frames = []
+
+        for frame, analyze, result in zip(frames, analyze_flags, results):
+            detections = []
+            if analyze:
+                for *xyxy, conf, cls in result.xyxy[0]:
+                    label = model.module.names[int(cls)] if torch.cuda.device_count() > 1 else model.names[int(cls)]
+                    bbox = [float(coord) for coord in xyxy]
+                    confidence = float(conf)
+                    detections.append({
+                        "label": label,
+                        "confidence": confidence,
+                        "bbox": bbox
+                    })
+                annotated_frame = result.render()[0]
+            else:
+                annotated_frame = frame
+
+            detections_list.append(detections)
+            annotated_frames.append(annotated_frame)
 
         if torch.cuda.memory_reserved() > 0.8 * torch.cuda.get_device_properties(0).total_memory:
             torch.cuda.empty_cache()
 
-        return detections, annotated_frame
+        return detections_list, annotated_frames
 
     @database_sync_to_async
     def save_processed_video(self, uploaded_video_id, video_path):
