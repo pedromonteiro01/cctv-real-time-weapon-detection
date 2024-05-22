@@ -159,6 +159,8 @@ function VideoAnalysis() {
                 if (data.frame) {
                     drawFrame(data.frame);
                 }
+
+                console.log("data 1: ", data)
                 if (data.detections) {
                     const detectionsWithFrames = data.detections.map(detection => ({
                         ...detection,
@@ -229,6 +231,7 @@ function VideoAnalysis() {
     };
 
     const formatTime = (seconds) => {
+        console.log("seconds: ", seconds)
         const pad = (num, size) => num.toString().padStart(size, '0');
         const totalSeconds = Math.floor(seconds);
         const minutes = Math.floor(totalSeconds / 60);

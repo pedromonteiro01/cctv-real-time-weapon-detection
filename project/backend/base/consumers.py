@@ -297,6 +297,7 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.uploaded_video_id = self.scope['url_route']['kwargs']['videoUploadId']
         self.uploaded_video_details = await self.get_uploaded_video_details(self.uploaded_video_id)
+        self.connection_open = True
 
         if self.uploaded_video_details:
             await self.accept()
@@ -305,79 +306,105 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
             await self.close(code=4404)
 
     async def stream_video_analysis(self, uploaded_video_id):
-        video_details = await self.get_uploaded_video_details(uploaded_video_id)
+        try:
+            video_details = await self.get_uploaded_video_details(uploaded_video_id)
+            video_path = video_details['video_path']
+            total_duration = self.get_video_duration(video_path)
+            print(f"Total video duration: {total_duration} seconds")
+            cap = cv2.VideoCapture(video_path)
+            fps = cap.get(cv2.CAP_PROP_FPS)
 
-        video_path = video_details['video_path']
-        total_duration = self.get_video_duration(video_path)
-        print(f"Total video duration: {total_duration} seconds")
-        cap = cv2.VideoCapture(video_path)
-        fps = cap.get(cv2.CAP_PROP_FPS)
+            if not cap.isOpened():
+                print("Error: Unable to open video source.")
+                return
 
-        if not cap.isOpened():
-            print("Error: Unable to open video source.")
-            return
+            height, width = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)), int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
-        ret, frame = cap.read()
-        if not ret:
-            print("Error: Unable to read video frame.")
+            # Define the codec and create VideoWriter object with dynamic dimensions
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            temp_file_path = os.path.join(tempfile.gettempdir(), f"{uploaded_video_id}_processed.mp4")
+            out = cv2.VideoWriter(temp_file_path, fourcc, fps, (width, height))
+
+            frame_count = 0
+            nth_frame = int(fps)  # Analyze one frame per second
+
+            while cap.isOpened() and self.connection_open:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                timestamp = frame_count / fps
+                analyze_frame = (frame_count % nth_frame == 0)
+
+                if analyze_frame:
+                    detections, annotated_frame = await self.process_frame_with_yolo(frame)
+                    await self.send_detections_and_frame(uploaded_video_id, detections, annotated_frame, timestamp)
+                else:
+                    _, buffer = cv2.imencode('.jpg', frame)
+                    frame_base64 = base64.b64encode(buffer).decode('utf-8')
+                    await self.send_safe(text_data=json.dumps({
+                        'videoUploadId': uploaded_video_id,
+                        'frame': frame_base64,
+                    }))
+                
+                out.write(frame)
+                frame_count += 1
+                await asyncio.sleep(1 / fps)  # Control the processing speed
+
             cap.release()
-            return
+            out.release()
+            if self.connection_open:
+                await self.save_processed_video(uploaded_video_id, temp_file_path)
+                await self.mark_video_as_analyzed(uploaded_video_id)
+                await self.send_safe(text_data=json.dumps({
+                    'videoUploadId': uploaded_video_id,
+                    'status': 'completed',
+                    'analyzed': True
+                }))
+        except Exception as e:
+            print(f"Error during video analysis: {e}")
 
-        height, width = frame.shape[:2]
+    async def process_frame_with_yolo(self, frame):
+        loop = asyncio.get_event_loop()
+        result = await loop.run_in_executor(None, model, frame)
+        detections = []
+        if result:
+            for *xyxy, conf, cls in result.xyxy[0]:
+                label = model.module.names[int(cls)] if torch.cuda.device_count() > 1 else model.names[int(cls)]
+                bbox = [float(coord) for coord in xyxy]
+                confidence = float(conf)
+                detections.append({
+                    "label": label,
+                    "confidence": confidence,
+                    "bbox": bbox
+                })
+            annotated_frame = result.render()[0]
+        else:
+            annotated_frame = frame
 
-        # Define the codec and create VideoWriter object with dynamic dimensions
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        temp_file_path = os.path.join(tempfile.gettempdir(), f"{uploaded_video_id}_processed.mp4")
-        out = cv2.VideoWriter(temp_file_path, fourcc, fps, (width, height))
+        if torch.cuda.memory_reserved() > 0.8 * torch.cuda.get_device_properties(0).total_memory:
+            torch.cuda.empty_cache()
 
-        frame_count = 0
-        frames_to_process = []
+        return detections, annotated_frame
 
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
+    async def send_detections_and_frame(self, uploaded_video_id, detections, frame, timestamp):
+        _, buffer = cv2.imencode('.jpg', frame)
+        frame_base64 = base64.b64encode(buffer).decode('utf-8')
+        for det in detections:
+            det['timestamp'] = timestamp
 
-            timestamp = frame_count / fps
-            frame_count += 1
-            print(f"Frame count: {frame_count}, Timestamp: {timestamp:.2f}s")
-            frames_to_process.append((frame, timestamp))
-
-            if len(frames_to_process) >= 10:  # Process in batches of 10 frames
-                await self.process_and_send_frames(frames_to_process, out, uploaded_video_id)
-                frames_to_process = []
-
-        if frames_to_process:  # Process any remaining frames
-            await self.process_and_send_frames(frames_to_process, out, uploaded_video_id)
-
-        cap.release()
-        out.release()
-        await self.save_processed_video(uploaded_video_id, temp_file_path)
-        await self.mark_video_as_analyzed(uploaded_video_id)
-        await self.send(text_data=json.dumps({
+        await self.send_safe(text_data=json.dumps({
             'videoUploadId': uploaded_video_id,
-            'status': 'completed',
-            'analyzed': True
+            'detections': detections,
+            'frame': frame_base64,
         }))
 
-    async def process_and_send_frames(self, frames_to_process, out, uploaded_video_id):
-        frames, timestamps = zip(*frames_to_process)
-        detections_list, annotated_frames = await self.process_frames_with_yolo(frames, [True] * len(frames))
-
-        for detections, annotated_frame, timestamp in zip(detections_list, annotated_frames, timestamps):
-            out.write(annotated_frame)
-            for det in detections:
-                det['timestamp'] = timestamp
-
-            _, buffer = cv2.imencode('.jpg', annotated_frame)
-            frame_base64 = base64.b64encode(buffer).decode('utf-8')
-
-            await self.send(text_data=json.dumps({
-                'videoUploadId': uploaded_video_id,
-                'detections': detections,
-                'frame': frame_base64,
-            }))
-            await asyncio.sleep(0.1)
+    async def send_safe(self, text_data=None, bytes_data=None):
+        if self.connection_open:
+            try:
+                await self.send(text_data=text_data, bytes_data=bytes_data)
+            except RuntimeError as e:
+                print(f"Failed to send message: {e}")
 
     def get_video_duration(self, video_path):
         cap = cv2.VideoCapture(video_path)
@@ -400,36 +427,6 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
             print(f"Video {uploaded_video_id} marked as analyzed.")
         except UploadedVideo.DoesNotExist:
             print(f"Uploaded video with ID {uploaded_video_id} not found.")
-
-    async def process_frames_with_yolo(self, frames, analyze_flags):
-        loop = asyncio.get_event_loop()
-        results = [await loop.run_in_executor(executor, model, frame) for frame in frames]
-        detections_list = []
-        annotated_frames = []
-
-        for frame, analyze, result in zip(frames, analyze_flags, results):
-            detections = []
-            if analyze:
-                for *xyxy, conf, cls in result.xyxy[0]:
-                    label = model.module.names[int(cls)] if torch.cuda.device_count() > 1 else model.names[int(cls)]
-                    bbox = [float(coord) for coord in xyxy]
-                    confidence = float(conf)
-                    detections.append({
-                        "label": label,
-                        "confidence": confidence,
-                        "bbox": bbox
-                    })
-                annotated_frame = result.render()[0]
-            else:
-                annotated_frame = frame
-
-            detections_list.append(detections)
-            annotated_frames.append(annotated_frame)
-
-        if torch.cuda.memory_reserved() > 0.8 * torch.cuda.get_device_properties(0).total_memory:
-            torch.cuda.empty_cache()
-
-        return detections_list, annotated_frames
 
     @database_sync_to_async
     def save_processed_video(self, uploaded_video_id, video_path):
@@ -458,3 +455,4 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         self.connection_open = False
         print(f"WebSocket disconnected with close code: {close_code}")
+
