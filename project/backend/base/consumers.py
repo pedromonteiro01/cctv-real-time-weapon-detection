@@ -38,7 +38,7 @@ class VideoStreamConsumer(AsyncWebsocketConsumer):
         self.camera_details = await self.get_camera_details(self.camera_id)
         self.rabbitmq_task = None
         self.frame_count = 0
-        self.nth_frame = 10  # Adjust this value as needed
+        self.nth_frame = 15  # Adjust this value as needed
 
         if self.camera_details:
             await self.accept()
@@ -178,7 +178,7 @@ class MultiCameraStreamConsumer(AsyncWebsocketConsumer):
         self.camera_timestamps = {}
         self.rabbitmq_tasks = []
         self.frame_count = 0
-        self.nth_frame = 10  # Adjust this value as needed
+        self.nth_frame = 15  # Adjust this value as needed
 
     async def connect(self):
         authToken = self.scope['url_route']['kwargs']['token']
@@ -456,4 +456,3 @@ class UploadedVideoStreamConsumer(AsyncWebsocketConsumer):
     async def disconnect(self, close_code):
         self.connection_open = False
         print(f"WebSocket disconnected with close code: {close_code}")
-

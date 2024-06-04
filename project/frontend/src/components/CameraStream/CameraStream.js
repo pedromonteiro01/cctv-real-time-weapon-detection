@@ -7,6 +7,8 @@ const CameraStream = ({ camera, frameSrc }) => {
     const canvasRef = useRef(null);
 
     const handleCameraClick = () => {
+        console.log("Camera clicked:", camera); // Log the camera object
+        console.log("Navigating to camera id:", camera.id); 
         navigate(`/camera/${camera.id}`);
     };
 
