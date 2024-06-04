@@ -1,18 +1,18 @@
-import React, { createContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useState, useEffect, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 
 export const WebSocketContext = createContext();
-
 export const WebSocketProvider = ({ children, authToken }) => {
     const [cameras, setCameras] = useState({});
     const [isLoading, setIsLoading] = useState(true);
     const ws = useRef(null);
     const isMounted = useRef(true);
-    const processedDetections = useRef(new Set());
+    const processedDetections = useRef({});
+    const workerRefs = useRef({});
 
     useEffect(() => {
         isMounted.current = true;
-
+        
         if (!authToken) {
             console.error("authToken is undefined!");
             return;
@@ -29,67 +29,77 @@ export const WebSocketProvider = ({ children, authToken }) => {
             if (!isMounted.current) return;
 
             const data = JSON.parse(event.data);
-            const timestamp = data.timestamp;
+            const { camera_id, timestamp, frame, detections, detection_id, location } = data;
+
+            if (!processedDetections.current[camera_id]) {
+                processedDetections.current[camera_id] = new Set();
+                workerRefs.current[camera_id] = new Worker(new URL('./frameWorker.js', import.meta.url));
+            }
+
+            const frameWorker = workerRefs.current[camera_id];
             const dateTime = new Date(timestamp).toLocaleString();
 
-            if (data.frame) {
-                const detections = data.detections ? data.detections.length : 0;
-                if (detections > 0 && !processedDetections.current.has(data.detection_id)) {
-                    processedDetections.current.add(data.detection_id);  // Mark detection as processed
+            if (frame && detections.length > 0 && !processedDetections.current[camera_id].has(detection_id)) {
+                processedDetections.current[camera_id].add(detection_id);
 
-                    toast(`New detection found on Camera ${data.camera_id}`, {
-                        icon: '🚨',
-                        style: {
-                            border: '1px solid #ff0000',
-                            padding: '16px',
-                            color: '#ff0000',
-                        },
-                    });
-
-                    const detectedInfo = {
-                        camera: data.camera_id,
-                        frame: data.frame,
-                        weaponType: data.detections[0].label,
-                        location: data.location,
-                        confidence: data.detections[0].confidence,
-                    };
-
-                    fetch('http://localhost:8080/api/detections/', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Token ${authToken}`,
-                        },
-                        body: JSON.stringify({
-                            camera: parseInt(detectedInfo.camera, 10),
-                            frame: detectedInfo.frame,
-                            weapon_type: detectedInfo.weaponType,
-                            site: detectedInfo.location,
-                            confidence: Math.round(detectedInfo.confidence * 100),
-                        }),
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        console.log('Detection saved:', data);
-                    })
-                    .catch((error) => {
-                        console.error('Error saving detection:', error);
-                    });
-                }
-
-                setCameras(prev => ({
-                    ...prev,
-                    [data.camera_id]: {
-                        id: data.camera_id,
-                        ...prev[data.camera_id],
-                        location: data.location,
-                        frameSrc: `data:image/jpeg;base64,${data.frame}`,
-                        dateTime: dateTime,
-                        detections: (prev[data.camera_id]?.detections || 0) + detections,
+                toast(`New detection found on Camera ${camera_id}`, {
+                    icon: '🚨',
+                    style: {
+                        border: '1px solid #ff0000',
+                        padding: '16px',
+                        color: '#ff0000',
                     },
-                }));
-                setIsLoading(false);
+                });
+
+                const detectedInfo = {
+                    camera: camera_id,
+                    frame: frame,
+                    weaponType: detections[0].label,
+                    location: location,
+                    confidence: detections[0].confidence,
+                };
+
+                fetch('http://localhost:8080/api/detections/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Token ${authToken}`,
+                    },
+                    body: JSON.stringify({
+                        camera: parseInt(detectedInfo.camera, 10),
+                        frame: detectedInfo.frame,
+                        weapon_type: detectedInfo.weaponType,
+                        site: detectedInfo.location,
+                        confidence: Math.round(detectedInfo.confidence * 100),
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Detection saved:', data);
+                })
+                .catch((error) => {
+                    console.error('Error saving detection:', error);
+                });
             }
+
+            if (frameWorker) {
+                frameWorker.postMessage({ frame: frame, mime: 'image/jpeg' });
+
+                frameWorker.onmessage = (e) => {
+                    setCameras(prev => ({
+                        ...prev,
+                        [camera_id]: {
+                            ...prev[camera_id],
+                            id: camera_id,
+                            location: location,
+                            frameSrc: e.data,
+                            dateTime: dateTime,
+                            detections: (prev[camera_id]?.detections || 0) + detections.length,
+                        }
+                    }));
+                };
+            }
+            setIsLoading(false);
         };
 
         ws.current.onerror = (error) => {
@@ -102,6 +112,7 @@ export const WebSocketProvider = ({ children, authToken }) => {
             if (ws.current) {
                 ws.current.close();
             }
+            Object.values(workerRefs.current).forEach(worker => worker.terminate());
         };
     }, [authToken]);
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import './VideoAnalysis.css';
 import { useAuth } from '../../context/AuthContext/AuthContext';
@@ -74,7 +74,7 @@ function VideoAnalysis() {
             });
     }, [videoId, authToken]);
 
-    const handleDownloadClick = async (e) => {
+    const handleDownloadClick = useCallback(async (e) => {
         e.preventDefault(); // Prevent the default anchor behavior
 
         try {
@@ -98,9 +98,9 @@ function VideoAnalysis() {
         } catch (error) {
             console.error('Error downloading the file:', error);
         }
-    };
+    }, [authToken, videoId]);
 
-    const persistDetections = (detections) => {
+    const persistDetections = useCallback((detections) => {
         const payload = {
             detections: detections.map(detection => ({
                 ...detection,
@@ -125,7 +125,7 @@ function VideoAnalysis() {
             .catch(error => {
                 console.error('Error persisting detections:', error);
             });
-    };
+    }, [authToken, videoId]);
 
     useEffect(() => {
         fetchVideoDetails();
@@ -133,7 +133,7 @@ function VideoAnalysis() {
         fetchDetections();
     }, [videoId, authToken]);
 
-    const fetchDetections = () => {
+    const fetchDetections = useCallback(() => {
         fetch(`http://localhost:8080/api/uploaded_videos/${videoId}/detections/`, {
             headers: {
                 'Authorization': `Token ${authToken}`,
@@ -146,7 +146,7 @@ function VideoAnalysis() {
             .catch(error => {
                 console.error('Error fetching detections:', error);
             });
-    };
+    }, [authToken, videoId]);
 
     useEffect(() => {
         if (!isAnalyzed) {
@@ -159,6 +159,8 @@ function VideoAnalysis() {
                 if (data.frame) {
                     drawFrame(data.frame);
                 }
+
+                console.log("data 1: ", data)
                 if (data.detections) {
                     const detectionsWithFrames = data.detections.map(detection => ({
                         ...detection,
@@ -179,9 +181,9 @@ function VideoAnalysis() {
                 ws.close();
             };
         }
-    }, [isAnalyzed, videoId]);
+    }, [isAnalyzed, videoId, persistDetections]);
 
-    const fetchVideoDetails = () => {
+    const fetchVideoDetails = useCallback(() => {
         fetch(`http://localhost:8080/api/uploaded_videos/${videoId}/`, {
             headers: {
                 'Authorization': `Token ${authToken}`,
@@ -197,9 +199,9 @@ function VideoAnalysis() {
             .catch(error => {
                 console.error('Error fetching video details:', error);
             });
-    };
+    }, [authToken, videoId]);
 
-    const drawFrame = (frameBase64) => {
+    const drawFrame = useCallback((frameBase64) => {
         const canvas = canvasRef.current;
         const context = canvas.getContext('2d');
         const image = new Image();
@@ -213,22 +215,23 @@ function VideoAnalysis() {
             console.error('Image loading error:', e);
         };
         image.src = `data:image/jpeg;base64,${frameBase64}`;
-    };
+    }, []);
 
-    const handlePageChange = (event) => {
+    const handlePageChange = useCallback((event) => {
         setCurrentPage(Number(event.target.value));
-    };
+    }, []);
 
-    const openDetectionFrame = (frame) => {
+    const openDetectionFrame = useCallback((frame) => {
         setSelectedFrame(frame);
         setShowModal(true);
-    };
+    }, []);
 
-    const closeDetectionFrame = () => {
+    const closeDetectionFrame = useCallback(() => {
         setShowModal(false);
-    };
+    }, []);
 
-    const formatTime = (seconds) => {
+    const formatTime = useCallback((seconds) => {
+        console.log("seconds: ", seconds)
         const pad = (num, size) => num.toString().padStart(size, '0');
         const totalSeconds = Math.floor(seconds);
         const minutes = Math.floor(totalSeconds / 60);
@@ -236,7 +239,7 @@ function VideoAnalysis() {
         const milliseconds = Math.floor((seconds % 1) * 1000);
 
         return `${pad(minutes, 2)}:${pad(remainingSeconds, 2)}.${pad(milliseconds, 3)}`;
-    };
+    }, []);
 
     const maxPage = Math.ceil(detections.length / itemsPerPage);
     const indexOfLastDetection = detections.length - ((currentPage - 1) * itemsPerPage);

@@ -30,8 +30,8 @@ const Dashboard = () => {
 
         setRecords(prevRecords => {
             const updatedNo = prevRecords.length + 1;
-            return [{...newRecord, no: updatedNo}, ...prevRecords];
-        });       
+            return [{ ...newRecord, no: updatedNo }, ...prevRecords];
+        });
         setLastDetectedCamera(detectedInfo.camera);
 
         console.log(detectedInfo);
@@ -49,13 +49,13 @@ const Dashboard = () => {
                 confidence: Math.round(detectedInfo.confidence * 100),
             }),
         })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Detection saved:', data);
-        })
-        .catch((error) => {
-            console.error('Error saving detection:', error);
-        });
+            .then(response => response.json())
+            .then(data => {
+                console.log('Detection saved:', data);
+            })
+            .catch((error) => {
+                console.error('Error saving detection:', error);
+            });
 
         setTimeout(() => setIsAlert(false), 5000);
     };
@@ -69,10 +69,12 @@ const Dashboard = () => {
                         <h3>Warning</h3>
                         <div className='unsolved-issue-content-weapon'>
                             <p>Weapon detection on:</p>
-                            <p className={`${isAlert ? 'animate-alert' : ''}`}>{lastDetectedCamera || 'No recent detections'}</p>
+                            <p data-testid="detection-status" className={`${isAlert ? 'animate-alert' : ''}`}>
+                                {lastDetectedCamera || 'No recent detections'}
+                            </p>
                         </div>
                         <div className={`warning-img-wrapper ${isAlert ? 'animate-alert' : ''}`}>
-                            <img src={warning} alt='warning' />
+                            <img src={warning} alt='warning' data-testid="warning-image" />
                         </div>
                     </div>
                 </div>

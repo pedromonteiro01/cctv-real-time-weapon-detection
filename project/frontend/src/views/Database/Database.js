@@ -7,7 +7,9 @@ import CameraStream from '../../components/CameraStream/CameraStream';
 import IconButton from '../../components/IconButton/IconButton';
 
 const Database = () => {
-    const { cameras, isLoading } = useContext(WebSocketContext);
+    const { cameras, isLoading } = useContext(WebSocketContext);    
+
+    console.log("Cameras:", cameras);
 
     return (
         <div className='database-wrapper'>
@@ -17,7 +19,7 @@ const Database = () => {
             </div>
             <div className='database-images-grid'>
                 {isLoading ? (
-                    <div className="loader-container">
+                    <div className="loader-container" data-testid="loader">
                         <ClipLoader color="#ffffff" />
                     </div>
                 ) : (

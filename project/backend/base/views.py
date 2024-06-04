@@ -162,6 +162,7 @@ def upload_video_detections(request, video_id):
             'label': detection.weapon_type,
             'confidence': detection.confidence,
             'frame': detection.frame,
+            'timestamp': detection.timestamp,
             'created_at': detection.created_at.strftime('%Y-%m-%d %H:%M:%S'),
         } for detection in detections]
 

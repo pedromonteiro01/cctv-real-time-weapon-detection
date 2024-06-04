@@ -3,7 +3,8 @@
 import React from 'react';
 import { BiCctv, BiTargetLock } from "react-icons/bi";
 import { MdOutlineCalendarToday } from "react-icons/md";
-import { FaBell } from "react-icons/fa";
+import { GoAlertFill } from "react-icons/go";
+
 import './TopFrameOverlay.css';
 
 const TopFrameOverlay = ({ id, location, dateTime, detections, showDetections }) => {
@@ -18,7 +19,7 @@ const TopFrameOverlay = ({ id, location, dateTime, detections, showDetections })
                     <p><MdOutlineCalendarToday data-testid="icon" /> {dateTime}</p>
                     {showDetections && (
                         <div className='detection-info'>
-                            <FaBell data-testid="icon" />
+                            <GoAlertFill data-testid="icon" />
                             <span className='detection-count'>{detections}</span>
                         </div>
                     )}

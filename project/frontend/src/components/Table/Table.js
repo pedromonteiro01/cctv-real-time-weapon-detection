@@ -8,11 +8,12 @@ import TableRow from './TableRow';
 const RecordTable = ({ records, setRecords }) => {
   const recordsPerPage = 3;
   const [currentPage, setCurrentPage] = useState(1);
-  const maxPage = Math.ceil(records.length / recordsPerPage);
+  const [loading, setLoading] = useState(true); // Add loading state
   const { authToken } = useAuth();
   const { cameraId } = useParams();
 
   useEffect(() => {
+    setLoading(true); // Set loading to true when starting the fetch
     const url = cameraId 
       ? `http://localhost:8080/api/detections/camera/${cameraId}/` 
       : 'http://localhost:8080/api/detections/';
@@ -36,11 +37,13 @@ const RecordTable = ({ records, setRecords }) => {
             no: index + 1,
         }));
         setRecords(transformedRecords);
+        setLoading(false); // Set loading to false when data is fetched
     })
     .catch((error) => {
         console.error('Error:', error);
+        setLoading(false); // Set loading to false in case of error
     });
-}, []);
+  }, [cameraId, authToken, setRecords]);
 
   const indexOfLastRecord = currentPage * recordsPerPage;
   const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
@@ -61,8 +64,9 @@ const RecordTable = ({ records, setRecords }) => {
               value={currentPage}
               onChange={handlePageChange}
               className="records-dropdown"
+              disabled={loading} // Disable dropdown while loading
             >
-              {Array.from({ length: maxPage }, (_, i) => (
+              {Array.from({ length: Math.ceil(records.length / recordsPerPage) }, (_, i) => (
                 <option key={i + 1} value={i + 1}>
                   {i + 1}
                 </option>
@@ -71,18 +75,22 @@ const RecordTable = ({ records, setRecords }) => {
           </label>
         </div>
       </div>
-      <table>
-        <TableHeader />
-        <tbody>
-          {currentRecords.length > 0 ? (
-            currentRecords.map((record, index) => <TableRow key={index} record={record} />)
-          ) : (
-            <tr>
-              <td colSpan="6" style={{ textAlign: 'center' }}>No records available</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+      {loading ? (
+        <div>Loading...</div> // Display loading indicator
+      ) : (
+        <table>
+          <TableHeader />
+          <tbody>
+            {currentRecords.length > 0 ? (
+              currentRecords.map((record, index) => <TableRow key={index} record={record} />)
+            ) : (
+              <tr>
+                <td colSpan="7" style={{ textAlign: 'center' }}>No records available</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 };

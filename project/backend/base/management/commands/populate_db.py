@@ -43,7 +43,7 @@ class Command(BaseCommand):
             another_user = user_model.objects.get(email='example@ua.pt')
 
         # Associating cameras for both users
-        camera_locations = [("Location 1", default_user), ("Location 2", default_user), ("Location 1", another_user)]
+        camera_locations = [("Location 1", default_user), ("Location 2", default_user), ("Location 3", default_user)]
         for location, user in camera_locations:
             Camera.objects.get_or_create(
                 user=user, 

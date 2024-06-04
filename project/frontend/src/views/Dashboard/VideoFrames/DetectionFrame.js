@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import './DetectionFrame.css';
 import ControllButton from '../../../components/ControllButton/ControllButton';
 import { CgMaximizeAlt, CgController, CgClose } from "react-icons/cg";
@@ -19,8 +19,9 @@ const DetectionFrame = ({ onWeaponDetected }) => {
     const ws = useRef(null);
     const isMounted = useRef(true);
     const processedDetections = useRef(new Set());
+    const workerRef = useRef(null);
 
-    const connectWebSocket = () => {
+    const connectWebSocket = useCallback(() => {
         ws.current = new WebSocket(`ws://localhost:8080/ws/video/${cameraId}/?timestamp=${timestamp}`);
 
         ws.current.onopen = () => {
@@ -32,27 +33,18 @@ const DetectionFrame = ({ onWeaponDetected }) => {
 
             if (!isMounted.current) return;
 
-            setCameraInfo({
-                id: data.camera_id || cameraInfo.id,
-                location: data.location || cameraInfo.location,
+            setCameraInfo(prevInfo => ({
+                ...prevInfo,
+                id: data.camera_id || prevInfo.id,
+                location: data.location || prevInfo.location,
                 day: new Date(data.timestamp).toLocaleDateString(),
                 hour: new Date(data.timestamp).toLocaleTimeString()
-            });
+            }));
 
             if (data.detections && data.detections.length > 0 && !processedDetections.current.has(data.detection_id)) {
                 processedDetections.current.add(data.detection_id);  // Mark detection as processed
 
                 data.detections.forEach((detection) => {
-                    const message = `Detection: ${detection.label} with ${Math.round(detection.confidence * 100)}% confidence`;
-                    toast(message, {
-                        icon: '🚨',
-                        style: {
-                            border: '1px solid #ff0000',
-                            padding: '16px',
-                            color: '#ff0000',
-                        },
-                    });
-
                     onWeaponDetected({
                         camera: data.camera_id,
                         weaponType: detection.label,
@@ -64,14 +56,8 @@ const DetectionFrame = ({ onWeaponDetected }) => {
                 });
             }
 
-            if (data.frame && canvasRef.current) {
-                const context = canvasRef.current.getContext('2d');
-                const blob = base64ToBlob(data.frame, 'image/jpeg');
-                const image = new Image();
-                image.onload = () => {
-                    context.drawImage(image, 0, 0, canvasRef.current.width, canvasRef.current.height);
-                };
-                image.src = URL.createObjectURL(blob);
+            if (data.frame && canvasRef.current && workerRef.current) {
+                workerRef.current.postMessage({ frame: data.frame, mime: 'image/jpeg' });
             }
         };
 
@@ -85,10 +71,23 @@ const DetectionFrame = ({ onWeaponDetected }) => {
                 setTimeout(() => connectWebSocket(), 1000);
             }
         };
-    };
+    }, [cameraId, timestamp, onWeaponDetected]);
 
     useEffect(() => {
         isMounted.current = true;
+        workerRef.current = new Worker(new URL('./frameWorker.js', import.meta.url));
+        
+        workerRef.current.onmessage = (e) => {
+            if (canvasRef.current) {
+                const context = canvasRef.current.getContext('2d');
+                const image = new Image();
+                image.onload = () => {
+                    context.drawImage(image, 0, 0, canvasRef.current.width, canvasRef.current.height);
+                };
+                image.src = e.data;
+            }
+        };
+
         connectWebSocket();
 
         return () => {
@@ -96,22 +95,15 @@ const DetectionFrame = ({ onWeaponDetected }) => {
             if (ws.current) {
                 ws.current.close();
             }
+            if (workerRef.current) {
+                workerRef.current.terminate();
+            }
         };
-    }, [cameraId, timestamp]);
+    }, [connectWebSocket]);
 
-    const base64ToBlob = (base64, mime) => {
-        const byteCharacters = atob(base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        return new Blob([byteArray], { type: mime });
-    };
-
-    const toggleExpandVideo = () => {
-        setIsExpanded(!isExpanded);
-    };
+    const toggleExpandVideo = useCallback(() => {
+        setIsExpanded(prev => !prev);
+    }, []);
 
     return (
         <div className={`video-frame ${isExpanded ? 'expanded' : ''}`}>
